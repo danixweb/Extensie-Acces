@@ -1,0 +1,217 @@
+{
+  "name": "access-explorer",
+  "displayName": "%ext.displayName%",
+  "description": "%ext.description%",
+  "version": "0.1.0",
+  "publisher": "topmotive",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "access",
+    "accdb",
+    "vba",
+    "microsoft access",
+    "database"
+  ],
+  "main": "./dist/extension.js",
+  "l10n": "./l10n",
+  "activationEvents": [
+    "onFileSystem:accessdb"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "accessExplorer",
+          "title": "%view.container.title%",
+          "icon": "media/access.svg"
+        }
+      ]
+    },
+    "views": {
+      "accessExplorer": [
+        {
+          "id": "accessExplorer.tree",
+          "name": "%view.tree.name%",
+          "icon": "media/access.svg",
+          "contextualTitle": "%view.container.title%"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "accessExplorer.tree",
+        "contents": "%view.welcome%"
+      }
+    ],
+    "commands": [
+      {
+        "command": "accessExplorer.openDatabase",
+        "title": "%cmd.openDatabase%",
+        "category": "Access",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "accessExplorer.refresh",
+        "title": "%cmd.refresh%",
+        "category": "Access",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "accessExplorer.closeDatabase",
+        "title": "%cmd.closeDatabase%",
+        "category": "Access",
+        "icon": "$(close)"
+      },
+      {
+        "command": "accessExplorer.openObject",
+        "title": "%cmd.openObject%",
+        "category": "Access"
+      },
+      {
+        "command": "accessExplorer.revealBackups",
+        "title": "%cmd.revealBackups%",
+        "category": "Access",
+        "icon": "$(history)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "accessExplorer.openDatabase",
+          "when": "resourceExtname =~ /\\.accdb$/i",
+          "group": "navigation@10"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "accessExplorer.openDatabase",
+          "when": "view == accessExplorer.tree",
+          "group": "navigation@1"
+        },
+        {
+          "command": "accessExplorer.refresh",
+          "when": "view == accessExplorer.tree",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "accessExplorer.refresh",
+          "when": "view == accessExplorer.tree && viewItem == database",
+          "group": "inline@1"
+        },
+        {
+          "command": "accessExplorer.closeDatabase",
+          "when": "view == accessExplorer.tree && viewItem == database",
+          "group": "inline@2"
+        },
+        {
+          "command": "accessExplorer.revealBackups",
+          "when": "view == accessExplorer.tree && viewItem == database",
+          "group": "9_backups@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "accessExplorer.openObject",
+          "when": "false"
+        },
+        {
+          "command": "accessExplorer.closeDatabase",
+          "when": "false"
+        },
+        {
+          "command": "accessExplorer.revealBackups",
+          "when": "false"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "vba",
+        "aliases": [
+          "VBA",
+          "Visual Basic for Applications"
+        ],
+        "extensions": [
+          ".bas",
+          ".cls"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "accessmacro",
+        "aliases": [
+          "Access Macro"
+        ],
+        "extensions": [
+          ".mac"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "vba",
+        "scopeName": "source.vba",
+        "path": "./syntaxes/vba.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "%ext.displayName%",
+      "properties": {
+        "accessExplorer.backupBeforeWrite": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.backupBeforeWrite%"
+        },
+        "accessExplorer.backupCount": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "%cfg.backupCount%"
+        },
+        "accessExplorer.backupDebounceSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "description": "%cfg.backupDebounceSeconds%"
+        },
+        "accessExplorer.compileAfterSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.compileAfterSave%"
+        },
+        "accessExplorer.operationTimeoutSeconds": {
+          "type": "number",
+          "default": 20,
+          "minimum": 5,
+          "description": "%cfg.operationTimeoutSeconds%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "node esbuild.mjs",
+    "build:prod": "node esbuild.mjs --production",
+    "watch": "node esbuild.mjs --watch",
+    "vscode:prepublish": "npm run check && npm run build:prod",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/l10n-dev": "^0.0.35",
+    "@vscode/vsce": "^3.2.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.3"
+  }
+}

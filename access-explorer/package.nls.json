@@ -1,0 +1,17 @@
+{
+  "ext.displayName": "Access Explorer",
+  "ext.description": "Browse and edit Microsoft Access (.accdb) databases — VBA modules, macros and query SQL — directly from VS Code via COM automation.",
+  "view.container.title": "Access Explorer",
+  "view.tree.name": "Databases",
+  "view.welcome": "No Access database is open.\n[Open Database](command:accessExplorer.openDatabase)\nYou can also right-click an .accdb file in the Explorer.",
+  "cmd.openDatabase": "Open Access Database",
+  "cmd.refresh": "Refresh Database Structure",
+  "cmd.closeDatabase": "Close Database",
+  "cmd.openObject": "Open Access Object",
+  "cmd.revealBackups": "Open Backups Folder",
+  "cfg.backupBeforeWrite": "Create a backup copy of the .accdb file before every write.",
+  "cfg.backupCount": "How many backup copies to keep per database (oldest are deleted).",
+  "cfg.backupDebounceSeconds": "Minimum seconds between two backups of the same database (0 = backup on every save).",
+  "cfg.compileAfterSave": "Run a VBA compile check after saving a module and warn if the project does not compile.",
+  "cfg.operationTimeoutSeconds": "Timeout in seconds for Access COM operations (opening the database and compiling use a fixed 60s)."
+}

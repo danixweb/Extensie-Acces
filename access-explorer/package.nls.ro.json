@@ -1,0 +1,17 @@
+{
+  "ext.displayName": "Access Explorer",
+  "ext.description": "Explorează și editează baze de date Microsoft Access (.accdb) — module VBA, macro-uri și SQL-ul interogărilor — direct din VS Code prin automatizare COM.",
+  "view.container.title": "Access Explorer",
+  "view.tree.name": "Baze de date",
+  "view.welcome": "Nicio bază de date Access deschisă.\n[Deschide baza de date](command:accessExplorer.openDatabase)\nPoți da și click-dreapta pe un fișier .accdb în Explorer.",
+  "cmd.openDatabase": "Deschide baza de date Access",
+  "cmd.refresh": "Reîncarcă structura bazei de date",
+  "cmd.closeDatabase": "Închide baza de date",
+  "cmd.openObject": "Deschide obiect Access",
+  "cmd.revealBackups": "Deschide folderul de backup-uri",
+  "cfg.backupBeforeWrite": "Creează o copie de siguranță a fișierului .accdb înainte de fiecare scriere.",
+  "cfg.backupCount": "Câte copii de siguranță se păstrează per bază de date (cele mai vechi se șterg).",
+  "cfg.backupDebounceSeconds": "Numărul minim de secunde între două backup-uri ale aceleiași baze de date (0 = backup la fiecare salvare).",
+  "cfg.compileAfterSave": "Rulează o verificare de compilare VBA după salvarea unui modul și avertizează dacă proiectul nu compilează.",
+  "cfg.operationTimeoutSeconds": "Timeout în secunde pentru operațiile COM Access (deschiderea bazei de date și compilarea folosesc 60s fix)."
+}

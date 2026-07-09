@@ -1,0 +1,121 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "VBA",
+  "scopeName": "source.vba",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#directives" },
+    { "include": "#declarations" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#operators" },
+    { "include": "#functions" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.apostrophe.vba",
+          "match": "'.*$"
+        },
+        {
+          "name": "comment.line.rem.vba",
+          "match": "(?i)(?:^|:)\\s*\\b(Rem)\\b.*$"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.vba",
+      "begin": "\"",
+      "end": "\"(?!\")",
+      "patterns": [
+        {
+          "name": "constant.character.escape.vba",
+          "match": "\"\""
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.vba",
+          "match": "(?i)&H[0-9A-F]+&?"
+        },
+        {
+          "name": "constant.numeric.octal.vba",
+          "match": "(?i)&O[0-7]+&?"
+        },
+        {
+          "name": "constant.numeric.vba",
+          "match": "\\b\\d+(\\.\\d+)?([eE][+-]?\\d+)?[%&!#@]?\\b"
+        },
+        {
+          "name": "constant.other.date.vba",
+          "match": "#[^#\\r\\n]+#"
+        }
+      ]
+    },
+    "directives": {
+      "patterns": [
+        {
+          "name": "keyword.control.preprocessor.vba",
+          "match": "(?i)^\\s*#(If|ElseIf|Else|End If|Const)\\b"
+        },
+        {
+          "name": "storage.modifier.option.vba",
+          "match": "(?i)^\\s*Option\\s+(Explicit|Base|Compare|Private)\\b.*$"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(Sub|Function|Property\\s+(Get|Let|Set))\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.function.vba" },
+            "3": { "name": "entity.name.function.vba" }
+          }
+        },
+        {
+          "name": "storage.modifier.declare.vba",
+          "match": "(?i)\\b(Declare\\s+(PtrSafe\\s+)?(Sub|Function)|Lib|Alias)\\b"
+        },
+        {
+          "name": "storage.modifier.vba",
+          "match": "(?i)\\b(Dim|Const|Public|Private|Friend|Global|Static|ReDim|Preserve|WithEvents|Event|Enum|Type|Optional|ByVal|ByRef|ParamArray)\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.vba",
+          "match": "(?i)\\b(If|Then|Else|ElseIf|End\\s+If|Select\\s+Case|Case|End\\s+Select|For\\s+Each|For|To|Step|Next|Do|While|Until|Loop|Wend|Exit|GoTo|GoSub|Return|On\\s+Error|Resume|Stop|End|With|End\\s+With|Call|RaiseEvent)\\b"
+        },
+        {
+          "name": "keyword.other.vba",
+          "match": "(?i)\\b(Set|Let|Get|New|Implements|Erase|LSet|RSet|AddressOf|TypeOf|Is|Like|Mod|And|Or|Not|Xor|Eqv|Imp|As|In|Sub|Function|Property|End\\s+(Sub|Function|Property|Type|Enum)|Attribute)\\b"
+        }
+      ]
+    },
+    "types": {
+      "name": "support.type.vba",
+      "match": "(?i)\\b(Boolean|Byte|Currency|Date|Decimal|Double|Integer|Long|LongLong|LongPtr|Object|Single|String|Variant)\\b"
+    },
+    "constants": {
+      "name": "constant.language.vba",
+      "match": "(?i)\\b(True|False|Nothing|Null|Empty|Me|vbNullString|vbCrLf|vbCr|vbLf|vbTab|vbNullChar)\\b"
+    },
+    "operators": {
+      "name": "keyword.operator.vba",
+      "match": "[=<>+\\-*/\\\\^&]"
+    },
+    "functions": {
+      "name": "support.function.vba",
+      "match": "(?i)\\b(MsgBox|InputBox|Len|Left|Right|Mid|Trim|LTrim|RTrim|UCase|LCase|Replace|InStr|InStrRev|Split|Join|Format|CStr|CInt|CLng|CDbl|CSng|CBool|CDate|CVar|CByte|CCur|CDec|IsNull|IsEmpty|IsNumeric|IsDate|IsArray|IsObject|UBound|LBound|Array|Chr|Asc|Str|Val|Now|Date|Time|Timer|DateAdd|DateDiff|DatePart|DateSerial|Year|Month|Day|Hour|Minute|Second|Weekday|Abs|Int|Fix|Rnd|Round|Sgn|Sqr|Exp|Log|Sin|Cos|Tan|Atn|DoEvents|Environ|Dir|Kill|FileCopy|MkDir|RmDir|ChDir|CurDir|EOF|LOF|FreeFile|Nz|DLookup|DCount|DSum|DMax|DMin|DAvg|DFirst|DLast|CurrentDb|CodeDb|CreateObject|GetObject|Err|Debug)\\b"
+    }
+  }
+}
