@@ -71,8 +71,6 @@ export interface ProcRange {
   /** "Click", or the bare name (e.g. a (General) proc) when the bucket has no sub-label. */
   label: string;
   range: vscode.Range;
-  /** Single-line range of just the declaration — used as the Outline node's selectionRange. */
-  declRange: vscode.Range;
   kindWord: string;
 }
 
@@ -108,8 +106,6 @@ export function groupProcedures(document: vscode.TextDocument): ProcGroup[] {
   }
 
   const lineLength = (line: number): number => document.lineAt(line).text.length;
-  const declRange = (proc: Proc): vscode.Range =>
-    new vscode.Range(proc.startLine, 0, proc.startLine, lineLength(proc.startLine));
   const fullRange = (proc: Proc): vscode.Range =>
     new vscode.Range(proc.startLine, 0, proc.endLine, lineLength(proc.endLine));
 
@@ -126,7 +122,6 @@ export function groupProcedures(document: vscode.TextDocument): ProcGroup[] {
       return {
         label: bucket === GENERAL ? proc.name : label,
         range: fullRange(proc),
-        declRange: declRange(proc),
         kindWord: proc.kindWord,
       };
     });
@@ -160,11 +155,11 @@ export class VbaSymbolProvider implements vscode.DocumentSymbolProvider {
             '',
             symbolKindFor(event.kindWord),
             event.range,
-            event.declRange,
+            event.range,
           ),
       );
-      // The bucket itself gets the FIRST child's declaration as its selectionRange, so picking
-      // just the control (no specific event) already jumps to its first subroutine.
+      // The bucket itself gets the FIRST child's selectionRange (now its full body), so picking
+      // just the control (no specific event) already selects its first subroutine in full.
       const bucketSymbol = new vscode.DocumentSymbol(
         group.bucket,
         '',
