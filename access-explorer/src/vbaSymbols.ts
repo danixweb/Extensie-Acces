@@ -65,7 +65,80 @@ function symbolKindFor(kindWord: string): vscode.SymbolKind {
   return kindWord === 'function' ? vscode.SymbolKind.Function : vscode.SymbolKind.Method;
 }
 
-const CODELESS_CATEGORIES: ReadonlySet<Category> = new Set(['Tables', 'Queries', 'Macros']);
+export const CODELESS_CATEGORIES: ReadonlySet<Category> = new Set(['Tables', 'Queries', 'Macros']);
+
+export interface ProcRange {
+  /** "Click", or the bare name (e.g. a (General) proc) when the bucket has no sub-label. */
+  label: string;
+  range: vscode.Range;
+  /** Single-line range of just the declaration — used as the Outline node's selectionRange. */
+  declRange: vscode.Range;
+  kindWord: string;
+}
+
+export interface ProcGroup {
+  /** Control/object name (e.g. "cmdSave", "Form"), or the literal "(General)" bucket. */
+  bucket: string;
+  /** Covers every event of this bucket — from the first procedure's start to the last one's end. */
+  range: vscode.Range;
+  events: ProcRange[];
+}
+
+/**
+ * Parses a document's raw text into the same control→events grouping used for the Outline
+ * (see file header comment): one group per bucket, each with the range spanning all of its
+ * events plus each event's own range. Shared by the DocumentSymbolProvider below and by the
+ * "select code for AI" command, so there is exactly one place that understands this convention.
+ */
+export function groupProcedures(document: vscode.TextDocument): ProcGroup[] {
+  const procs = parseProcedures(document.getText());
+  if (procs.length === 0) {
+    return [];
+  }
+
+  const buckets = new Map<string, Proc[]>();
+  for (const proc of procs) {
+    const { bucket } = splitName(proc.name);
+    const list = buckets.get(bucket);
+    if (list) {
+      list.push(proc);
+    } else {
+      buckets.set(bucket, [proc]);
+    }
+  }
+
+  const lineLength = (line: number): number => document.lineAt(line).text.length;
+  const declRange = (proc: Proc): vscode.Range =>
+    new vscode.Range(proc.startLine, 0, proc.startLine, lineLength(proc.startLine));
+  const fullRange = (proc: Proc): vscode.Range =>
+    new vscode.Range(proc.startLine, 0, proc.endLine, lineLength(proc.endLine));
+
+  const bucketNames = [...buckets.keys()].sort((a, b) => {
+    if (a === GENERAL) return -1;
+    if (b === GENERAL) return 1;
+    return a.localeCompare(b);
+  });
+
+  return bucketNames.map((bucket) => {
+    const bucketProcs = buckets.get(bucket)!;
+    const events = bucketProcs.map((proc) => {
+      const { label } = splitName(proc.name);
+      return {
+        label: bucket === GENERAL ? proc.name : label,
+        range: fullRange(proc),
+        declRange: declRange(proc),
+        kindWord: proc.kindWord,
+      };
+    });
+    const first = bucketProcs[0];
+    const last = bucketProcs[bucketProcs.length - 1];
+    return {
+      bucket,
+      range: new vscode.Range(first.startLine, 0, last.endLine, lineLength(last.endLine)),
+      events,
+    };
+  });
+}
 
 export class VbaSymbolProvider implements vscode.DocumentSymbolProvider {
   provideDocumentSymbols(document: vscode.TextDocument): vscode.DocumentSymbol[] {
@@ -79,56 +152,25 @@ export class VbaSymbolProvider implements vscode.DocumentSymbolProvider {
       return [];
     }
 
-    const procs = parseProcedures(document.getText());
-    if (procs.length === 0) {
-      return [];
-    }
-
-    const buckets = new Map<string, Proc[]>();
-    for (const proc of procs) {
-      const { bucket } = splitName(proc.name);
-      const list = buckets.get(bucket);
-      if (list) {
-        list.push(proc);
-      } else {
-        buckets.set(bucket, [proc]);
-      }
-    }
-
-    const lineLength = (line: number): number => document.lineAt(line).text.length;
-    const declRange = (proc: Proc): vscode.Range =>
-      new vscode.Range(proc.startLine, 0, proc.startLine, lineLength(proc.startLine));
-    const fullRange = (proc: Proc): vscode.Range =>
-      new vscode.Range(proc.startLine, 0, proc.endLine, lineLength(proc.endLine));
-
-    const bucketNames = [...buckets.keys()].sort((a, b) => {
-      if (a === GENERAL) return -1;
-      if (b === GENERAL) return 1;
-      return a.localeCompare(b);
-    });
-
-    return bucketNames.map((bucket) => {
-      const bucketProcs = buckets.get(bucket)!;
-      const children = bucketProcs.map((proc) => {
-        const { label } = splitName(proc.name);
-        return new vscode.DocumentSymbol(
-          bucket === GENERAL ? proc.name : label,
-          '',
-          symbolKindFor(proc.kindWord),
-          fullRange(proc),
-          declRange(proc),
-        );
-      });
-      const first = bucketProcs[0];
-      const last = bucketProcs[bucketProcs.length - 1];
+    return groupProcedures(document).map((group) => {
+      const children = group.events.map(
+        (event) =>
+          new vscode.DocumentSymbol(
+            event.label,
+            '',
+            symbolKindFor(event.kindWord),
+            event.range,
+            event.declRange,
+          ),
+      );
       // The bucket itself gets the FIRST child's declaration as its selectionRange, so picking
       // just the control (no specific event) already jumps to its first subroutine.
       const bucketSymbol = new vscode.DocumentSymbol(
-        bucket,
+        group.bucket,
         '',
-        bucket === GENERAL ? vscode.SymbolKind.Module : vscode.SymbolKind.Class,
-        new vscode.Range(first.startLine, 0, last.endLine, lineLength(last.endLine)),
-        declRange(first),
+        group.bucket === GENERAL ? vscode.SymbolKind.Module : vscode.SymbolKind.Class,
+        group.range,
+        children[0].selectionRange,
       );
       bucketSymbol.children = children;
       return bucketSymbol;

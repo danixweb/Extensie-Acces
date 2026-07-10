@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { registerSelectForAi } from './aiContext';
 import { BackupManager } from './backup';
 import { AccessBridge } from './bridge';
 import { describeError } from './errors';
@@ -13,6 +14,7 @@ import { VbaSymbolProvider } from './vbaSymbols';
 const registry = new DatabaseRegistry();
 let fsProvider: AccessFsProvider;
 let vbaUnlock: VbaUnlockManager;
+let backups: BackupManager;
 
 export function activate(context: vscode.ExtensionContext): void {
   if (process.platform !== 'win32') {
@@ -22,7 +24,7 @@ export function activate(context: vscode.ExtensionContext): void {
     return;
   }
 
-  const backups = new BackupManager();
+  backups = new BackupManager();
   fsProvider = new AccessFsProvider(registry, backups);
   const tree = new AccessTreeProvider(registry);
   vbaUnlock = new VbaUnlockManager(context.secrets);
@@ -100,6 +102,8 @@ export function activate(context: vscode.ExtensionContext): void {
       tree.setFilter('');
       updateFilterState();
     }),
+
+    registerSelectForAi(),
   );
 }
 
@@ -158,6 +162,13 @@ async function openDatabase(
           listing,
           vbaLocked: vbaProtected,
         };
+        try {
+          await backups.atSessionStart(db);
+        } catch (err) {
+          void vscode.window.showWarningMessage(
+            vscode.l10n.t('Opened, but the session-start backup failed: {0}', describeError(err)),
+          );
+        }
         registry.add(db);
         await vscode.commands.executeCommand('accessExplorer.tree.focus');
         if (vbaProtected) {

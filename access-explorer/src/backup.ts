@@ -17,6 +17,19 @@ export class BackupManager {
     return path.join(path.dirname(db.dbPath), BACKUP_DIR_NAME);
   }
 
+  /**
+   * One backup taken right when a database is opened — a session marker, independent of any
+   * write. Shares the debounce clock with beforeWrite, so a save made immediately after opening
+   * doesn't duplicate it, and shares the same retention pool (pruned together by timestamp).
+   */
+  async atSessionStart(db: OpenDatabase): Promise<void> {
+    const cfg = vscode.workspace.getConfiguration('accessExplorer');
+    if (!cfg.get<boolean>('backupOnOpen', true)) {
+      return;
+    }
+    await this.takeBackup(db, cfg.get<number>('backupCount', 10));
+  }
+
   async beforeWrite(db: OpenDatabase): Promise<void> {
     const cfg = vscode.workspace.getConfiguration('accessExplorer');
     if (!cfg.get<boolean>('backupBeforeWrite', true)) {
@@ -27,6 +40,10 @@ export class BackupManager {
     if (debounceMs > 0 && Date.now() - last < debounceMs) {
       return;
     }
+    await this.takeBackup(db, cfg.get<number>('backupCount', 10));
+  }
+
+  private async takeBackup(db: OpenDatabase, keep: number): Promise<void> {
     const base = path.basename(db.dbPath, path.extname(db.dbPath));
     const stamp = new Date()
       .toISOString()
@@ -36,7 +53,7 @@ export class BackupManager {
     const target = path.join(this.backupDirFor(db), `${base}.${stamp}.accdb`);
     await db.bridge.backup(target);
     this.lastBackupAt.set(db.key, Date.now());
-    await this.prune(db, cfg.get<number>('backupCount', 10));
+    await this.prune(db, keep);
   }
 
   private async prune(db: OpenDatabase, keep: number): Promise<void> {

@@ -8,6 +8,9 @@ Extensie VS Code pentru lucrul cu baze de date **Microsoft Access (.accdb)** pri
 - **TreeView** în sidebar cu toate componentele: Tabele, Interogări, Formulare, Rapoarte, Macro-uri, Module VBA (standard + clasă).
 - **Filtrare arbore**: buton *Filter Objects* în titlul view-ului — arată doar obiectele al căror nume conține textul căutat (case-insensitive); *Clear Filter* revine la lista completă.
 - **Navigare cod stil VBA IDE**: panoul *Outline* și `Ctrl+Shift+O` (Go to Symbol) grupează subrutinele fiecărui Modul/Formular/Raport exact ca dropdown-urile din editorul VBA — `(General)` pentru procedurile independente, apoi câte un grup per control (`cmdSave`, `Form`, etc.) cu evenimentele lui; selectarea sare direct la începutul codului.
+- **Selectează codul pentru AI** (`Access: Select Code for AI`, scurtătură `Ctrl+Alt+A`, disponibilă și din click-dreapta sau din butonul din title bar-ul editorului): documentele acestei extensii sunt virtuale (schema `accessdb:`), nu fișiere reale pe disc — un asistent AI care caută fișierul nu găsește nimic. Comanda selectează explicit codul relevant în editor, ca AI-ul să-l primească direct din selecție:
+  - pe o interogare/tabel/macro (fără proceduri) selectează tot documentul;
+  - pe un Modul/Formular/Raport arată o listă din care alegi: tot codul modulului, toate evenimentele unui control, sau un singur eveniment — selecția din editor devine exact acel cod.
 - **Editare cu scriere înapoi** în baza de date pentru:
   - **Module VBA** (`.bas` / `.cls`) — cu syntax highlighting VBA inclus;
   - **Codul VBA al Formularelor/Rapoartelor** (`.form.txt` / `.report.txt`) — fereastra arată **doar codul**, fără blocurile de design (proprietăți/poziții control); partea de design rămâne needitabilă din extensie, dar e păstrată intactă la scriere;
@@ -16,6 +19,7 @@ Extensie VS Code pentru lucrul cu baze de date **Microsoft Access (.accdb)** pri
 - **Read-only** pentru definițiile tabelelor (lacăt în editor); Formularele/Rapoartele sunt read-only doar dacă nu au deloc modul de cod (`HasModule=False`).
 - **Ctrl+S** salvează direct în `.accdb`; după salvarea unui modul sau a codului unui Formular/Raport rulează o **verificare de compilare VBA** și avertizează dacă proiectul nu compilează.
 - **Backup automat** înainte de fiecare scriere în `<folder DB>\.accdb-backups\<nume>.<timestamp>.accdb`, cu retenție configurabilă. Dacă backup-ul eșuează, scrierea este anulată.
+- **Backup la deschidere**: pe lângă backup-ul per-scriere, se creează automat un backup (același format cu timestamp) chiar la deschiderea bazei de date — un marcaj de "început de sesiune de lucru", util ca punct de revenire independent de ce salvezi ulterior. Dezactivabil din `accessExplorer.backupOnOpen`; dacă eșuează, apare doar un avertisment — baza rămâne deschisă.
 - **Detectare conflicte**: dacă obiectul a fost modificat în Access după deschidere, salvarea e refuzată până rulezi Refresh.
 - **Refresh** recitește structura bazei de date și reîncarcă editoarele deschise.
 - **UI bilingv**: engleză implicit, română cu `code --locale=ro` (sau Display Language: Română).
@@ -101,6 +105,7 @@ code --install-extension .\access-explorer-0.1.0.vsix
 | Setare | Implicit | Descriere |
 |---|---|---|
 | `accessExplorer.backupBeforeWrite` | `true` | Backup înainte de fiecare scriere |
+| `accessExplorer.backupOnOpen` | `true` | Backup la deschiderea bazei de date (început de sesiune) |
 | `accessExplorer.backupCount` | `10` | Câte backup-uri se păstrează per DB |
 | `accessExplorer.backupDebounceSeconds` | `30` | Interval minim între backup-uri (0 = la fiecare salvare) |
 | `accessExplorer.compileAfterSave` | `true` | Verificare de compilare VBA după salvarea unui modul |

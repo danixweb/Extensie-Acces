@@ -27,5 +27,10 @@
   "Open in Access Explorer": "Deschide în Access Explorer",
   "Opening {0} in Access…": "Se deschide {0} în Access…",
   "Refresh failed for {0}: {1}": "Reîncărcarea a eșuat pentru {0}: {1}",
-  "The connection to Access for {0} was lost and has been cleaned up. Reopen the database to continue.": "Conexiunea cu Access pentru {0} a fost pierdută și a fost curățată. Redeschide baza de date pentru a continua."
+  "The connection to Access for {0} was lost and has been cleaned up. Reopen the database to continue.": "Conexiunea cu Access pentru {0} a fost pierdută și a fost curățată. Redeschide baza de date pentru a continua.",
+  "Open an Access object first — this command only works on Access Explorer documents.": "Deschide mai întâi un obiect Access — această comandă funcționează doar pe documente Access Explorer.",
+  "$(book) Whole module code": "$(book) Tot codul modulului",
+  "$(symbol-class) All events of {0}": "$(symbol-class) Toate evenimentele lui {0}",
+  "Select the code to focus the AI on": "Selectează codul pe care să se concentreze AI-ul",
+  "Opened, but the session-start backup failed: {0}": "Deschis, dar backup-ul de început de sesiune a eșuat: {0}"
 }
