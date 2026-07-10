@@ -187,7 +187,9 @@
         ],
         "extensions": [
           ".bas",
-          ".cls"
+          ".cls",
+          ".form.txt",
+          ".report.txt"
         ],
         "configuration": "./language-configuration.json"
       },
