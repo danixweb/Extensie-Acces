@@ -28,7 +28,12 @@ Add-Type -Name Win32 -Namespace Bridge -MemberDefinition @'
 public static extern uint GetWindowThreadProcessId(System.IntPtr hWnd, out uint pid);
 [DllImport("user32.dll")]
 public static extern bool SetForegroundWindow(System.IntPtr hWnd);
+[DllImport("user32.dll")]
+public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, System.UIntPtr dwExtraInfo);
 '@
+
+$VK_SHIFT = 0x10
+$KEYEVENTF_KEYUP = 0x2
 
 $script:app = $null
 $script:accessPid = 0
@@ -113,8 +118,24 @@ function Op-Open([hashtable]$args_) {
         $script:accessPid = 0
         $script:accessHwnd = [System.IntPtr]::Zero
     }
-    # $false = shared mode: coexists with the Access UI having the file open normally.
-    $script:app.OpenCurrentDatabase($path, $false)
+    # Bypass Startup/AutoExec (the classic "hold Shift while opening" trick, simulated via
+    # keybd_event) — for a code-reading/editing tool, running the app's Startup form or AutoExec
+    # macro never helps and only risks a blocking modal dialog or an app that quits itself. Has no
+    # effect at all if the database owner disabled AllowBypassKey.
+    $bypassStartup = $args_.ContainsKey('bypassStartup') -and $args_.bypassStartup
+    if ($bypassStartup) {
+        [Bridge.Win32]::keybd_event($VK_SHIFT, 0, 0, [System.UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 100
+    }
+    try {
+        # $false = shared mode: coexists with the Access UI having the file open normally.
+        $script:app.OpenCurrentDatabase($path, $false)
+    } finally {
+        # Always release Shift, even on failure — otherwise it stays "stuck" system-wide.
+        if ($bypassStartup) {
+            [Bridge.Win32]::keybd_event($VK_SHIFT, 0, $KEYEVENTF_KEYUP, [System.UIntPtr]::Zero)
+        }
+    }
     $script:dbPath = $path
     # A password-locked VBA project (Tools > VBAProject Properties > Protection) is a different
     # condition from the Trust Center's "Trust access to the VBA project object model" setting —

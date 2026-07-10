@@ -105,6 +105,7 @@ async function openDatabase(
 
   const cfg = vscode.workspace.getConfiguration('accessExplorer');
   const timeoutMs = cfg.get<number>('operationTimeoutSeconds', 20) * 1000;
+  const bypassStartup = cfg.get<boolean>('bypassStartup', true);
 
   await vscode.window.withProgress(
     {
@@ -117,6 +118,7 @@ async function openDatabase(
           scriptPath,
           workDir,
           defaultTimeoutMs: timeoutMs,
+          bypassStartup,
           onCrash: (crashed) => onBridgeCrash(crashed.dbPath),
         });
         const listing = await bridge.list();

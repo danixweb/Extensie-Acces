@@ -15,5 +15,6 @@
   "cfg.backupDebounceSeconds": "Numărul minim de secunde între două backup-uri ale aceleiași baze de date (0 = backup la fiecare salvare).",
   "cfg.compileAfterSave": "Rulează o verificare de compilare VBA după salvarea unui modul și avertizează dacă proiectul nu compilează.",
   "cfg.operationTimeoutSeconds": "Timeout în secunde pentru operațiile COM Access (deschiderea bazei de date și compilarea folosesc 60s fix).",
-  "cfg.vbaUnlockTimeoutSeconds": "Câte secunde se așteaptă să introduci parola proiectului VBA în dialogul Access înainte de a renunța."
+  "cfg.vbaUnlockTimeoutSeconds": "Câte secunde se așteaptă să introduci parola proiectului VBA în dialogul Access înainte de a renunța.",
+  "cfg.bypassStartup": "Sare peste formularul Startup și macro-ul AutoExec ale bazei de date la deschidere (tehnica clasică Shift-bypass). Nu are efect dacă proprietatea AllowBypassKey a bazei a fost dezactivată de dezvoltator."
 }

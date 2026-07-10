@@ -27,6 +27,8 @@ export interface BridgeOptions {
   scriptPath: string;
   /** Default per-operation timeout in ms. */
   defaultTimeoutMs: number;
+  /** Skip the database's Startup form/AutoExec macro (classic Shift-bypass technique). */
+  bypassStartup: boolean;
   /** Called when the bridge process dies unexpectedly. */
   onCrash?: (db: AccessBridge) => void;
 }
@@ -59,7 +61,11 @@ export class AccessBridge {
     const bridge = new AccessBridge(dbPath, opts);
     await bridge.start();
     try {
-      const data = (await bridge.request('open', { path: dbPath }, OPEN_TIMEOUT_MS)) as {
+      const data = (await bridge.request(
+        'open',
+        { path: dbPath, bypassStartup: opts.bypassStartup },
+        OPEN_TIMEOUT_MS,
+      )) as {
         accessPid: number;
         vbaProtected?: boolean;
       };

@@ -73,7 +73,7 @@ code --install-extension .\access-explorer-0.1.0.vsix
 ## Limitări și riscuri
 
 - **Doar Windows**, cu Microsoft Access instalat (arhitectura pe biți a Access-ului nu contează — COM este out-of-process).
-- **AutoExec / formulare de startup**: deschiderea bazei de date prin COM execută macro-ul AutoExec și setările de startup ale bazei, ca la orice deschidere. Nu există flag de automatizare care să le sară. Pentru baze cu AutoExec agresiv, testează întâi pe o copie.
+- **AutoExec / formulare de startup**: implicit (`accessExplorer.bypassStartup = true`), extensia sare peste macro-ul AutoExec și formularul Startup la deschidere, folosind tehnica clasică "Shift ținut apăsat" (simulată programatic) — util mai ales dacă Startup deschide un formular de login propriu al aplicației care ar bloca altfel deschiderea. Nu are efect dacă proprietatea `AllowBypassKey` a bazei a fost dezactivată explicit de dezvoltator; în acel caz (sau dacă dezactivezi setarea) se comportă ca la o deschidere obișnuită — AutoExec/Startup rulează, iar pentru baze cu AutoExec agresiv sau formulare modale merită testat întâi pe o copie.
 - **Trust Center**: bazele din locații neîncredere pot fi blocate sau pot afișa dialoguri; extensia detectează blocajul prin timeout și resetează conexiunea, dar soluția corectă este adăugarea folderului în *Trusted Locations*.
 - **Macro-urile** se editează în serializarea text a Access (formatul `SaveAsText`), nu într-un designer; formatul este sensibil la versiunea de Access.
 - **Scriere în mod shared = last-writer-wins** dacă doi utilizatori editează același obiect simultan; atenuat prin backup automat + detectarea conflictelor la salvare.
@@ -96,3 +96,4 @@ code --install-extension .\access-explorer-0.1.0.vsix
 | `accessExplorer.compileAfterSave` | `true` | Verificare de compilare VBA după salvarea unui modul |
 | `accessExplorer.operationTimeoutSeconds` | `20` | Timeout pentru operațiile COM |
 | `accessExplorer.vbaUnlockTimeoutSeconds` | `120` | Cât timp se așteaptă introducerea parolei la deblocarea unui proiect VBA protejat |
+| `accessExplorer.bypassStartup` | `true` | Sare peste formularul Startup / AutoExec la deschidere (Shift-bypass) |

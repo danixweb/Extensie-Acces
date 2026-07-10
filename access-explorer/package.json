@@ -215,6 +215,11 @@
           "default": 120,
           "minimum": 10,
           "description": "%cfg.vbaUnlockTimeoutSeconds%"
+        },
+        "accessExplorer.bypassStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.bypassStartup%"
         }
       }
     }

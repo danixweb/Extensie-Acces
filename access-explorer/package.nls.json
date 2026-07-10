@@ -15,5 +15,6 @@
   "cfg.backupDebounceSeconds": "Minimum seconds between two backups of the same database (0 = backup on every save).",
   "cfg.compileAfterSave": "Run a VBA compile check after saving a module and warn if the project does not compile.",
   "cfg.operationTimeoutSeconds": "Timeout in seconds for Access COM operations (opening the database and compiling use a fixed 60s).",
-  "cfg.vbaUnlockTimeoutSeconds": "How many seconds to wait for you to enter the VBA project password in the Access dialog before giving up."
+  "cfg.vbaUnlockTimeoutSeconds": "How many seconds to wait for you to enter the VBA project password in the Access dialog before giving up.",
+  "cfg.bypassStartup": "Skip the database's Startup form and AutoExec macro when opening it (the classic Shift-bypass technique). Has no effect if the database's AllowBypassKey property was disabled by its developer."
 }
