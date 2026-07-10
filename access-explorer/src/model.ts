@@ -26,6 +26,8 @@ export interface OpenDatabase {
   dbPath: string;
   bridge: AccessBridge;
   listing: DbListing;
+  /** True when the VBA project is password-locked (Tools > VBAProject Properties > Protection). */
+  vbaLocked: boolean;
 }
 
 export function dbKeyFor(dbPath: string): string {

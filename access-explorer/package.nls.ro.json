@@ -9,9 +9,11 @@
   "cmd.closeDatabase": "Închide baza de date",
   "cmd.openObject": "Deschide obiect Access",
   "cmd.revealBackups": "Deschide folderul de backup-uri",
+  "cmd.unlockVbaProject": "Deblochează proiectul VBA",
   "cfg.backupBeforeWrite": "Creează o copie de siguranță a fișierului .accdb înainte de fiecare scriere.",
   "cfg.backupCount": "Câte copii de siguranță se păstrează per bază de date (cele mai vechi se șterg).",
   "cfg.backupDebounceSeconds": "Numărul minim de secunde între două backup-uri ale aceleiași baze de date (0 = backup la fiecare salvare).",
   "cfg.compileAfterSave": "Rulează o verificare de compilare VBA după salvarea unui modul și avertizează dacă proiectul nu compilează.",
-  "cfg.operationTimeoutSeconds": "Timeout în secunde pentru operațiile COM Access (deschiderea bazei de date și compilarea folosesc 60s fix)."
+  "cfg.operationTimeoutSeconds": "Timeout în secunde pentru operațiile COM Access (deschiderea bazei de date și compilarea folosesc 60s fix).",
+  "cfg.vbaUnlockTimeoutSeconds": "Câte secunde se așteaptă să introduci parola proiectului VBA în dialogul Access înainte de a renunța."
 }

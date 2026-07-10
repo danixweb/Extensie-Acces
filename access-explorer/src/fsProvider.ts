@@ -168,7 +168,7 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
           break;
       }
     } catch (err) {
-      throw vscode.FileSystemError.Unavailable(describeError(err));
+      throw vscode.FileSystemError.Unavailable(describeError(err, { vbaLocked: db.vbaLocked }));
     }
 
     // Access may store a canonical form of what was written (e.g. DAO reformats
@@ -245,7 +245,7 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
       if (err instanceof BridgeError && err.code === 'OBJECT_NOT_FOUND') {
         throw vscode.FileSystemError.FileNotFound(uri);
       }
-      throw vscode.FileSystemError.Unavailable(describeError(err));
+      throw vscode.FileSystemError.Unavailable(describeError(err, { vbaLocked: db.vbaLocked }));
     }
   }
 

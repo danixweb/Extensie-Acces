@@ -79,6 +79,10 @@ code --install-extension .\access-explorer-0.1.0.vsix
 - **Scriere în mod shared = last-writer-wins** dacă doi utilizatori editează același obiect simultan; atenuat prin backup automat + detectarea conflictelor la salvare.
 - Verificarea de compilare folosește `acCmdCompileAndSaveAllModules`, care **salvează toate modulele**, nu doar cel editat (dezactivabilă din `accessExplorer.compileAfterSave`).
 - **Baze protejate cu parolă / criptate** nu sunt suportate în această versiune.
+- **Proiect VBA protejat cu parolă** (Tools > VBAProject Properties > Protection): la deschidere,
+  extensia detectează blocajul și oferă comanda *Unlock VBA Project* — parola se copiază în
+  clipboard, iar tu o lipești în dialogul nativ Access care apare (nu există API COM public pentru
+  a o introduce programatic). Parola poate fi reținută în VS Code Secret Storage per bază de date.
 - **OneDrive/Dropbox**: fișierele `.accdb` sincronizate în cloud (cum e cazul acestui workspace, aflat pe OneDrive) riscă conflicte de sincronizare și blocaje pe `.laccdb`. Recomandat: pune baza de date pe un folder local nesincronizat sau pune sincronizarea pe pauză cât lucrezi.
 - Deși există backup automat, pentru operații ample fă și un **backup manual** înainte (comanda *Open Backups Folder* îți arată copiile existente).
 
@@ -91,3 +95,4 @@ code --install-extension .\access-explorer-0.1.0.vsix
 | `accessExplorer.backupDebounceSeconds` | `30` | Interval minim între backup-uri (0 = la fiecare salvare) |
 | `accessExplorer.compileAfterSave` | `true` | Verificare de compilare VBA după salvarea unui modul |
 | `accessExplorer.operationTimeoutSeconds` | `20` | Timeout pentru operațiile COM |
+| `accessExplorer.vbaUnlockTimeoutSeconds` | `120` | Cât timp se așteaptă introducerea parolei la deblocarea unui proiect VBA protejat |

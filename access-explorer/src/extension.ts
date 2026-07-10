@@ -5,11 +5,13 @@ import { BackupManager } from './backup';
 import { AccessBridge } from './bridge';
 import { describeError } from './errors';
 import { AccessFsProvider } from './fsProvider';
-import { Category, DatabaseRegistry, dbKeyFor } from './model';
+import { Category, DatabaseRegistry, dbKeyFor, OpenDatabase } from './model';
 import { AccessTreeProvider, TreeNode } from './tree';
+import { VbaUnlockManager } from './vbaUnlock';
 
 const registry = new DatabaseRegistry();
 let fsProvider: AccessFsProvider;
+let vbaUnlock: VbaUnlockManager;
 
 export function activate(context: vscode.ExtensionContext): void {
   if (process.platform !== 'win32') {
@@ -22,6 +24,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const backups = new BackupManager();
   fsProvider = new AccessFsProvider(registry, backups);
   const tree = new AccessTreeProvider(registry);
+  vbaUnlock = new VbaUnlockManager(context.secrets);
 
   const scriptPath = context.asAbsolutePath(path.join('ps', 'access-bridge.ps1'));
   const workDir = path.join(context.globalStorageUri.fsPath, 'work');
@@ -59,6 +62,13 @@ export function activate(context: vscode.ExtensionContext): void {
         const dir = backups.backupDirFor(db);
         await fs.mkdir(dir, { recursive: true });
         void vscode.env.openExternal(vscode.Uri.file(dir));
+      }
+    }),
+
+    vscode.commands.registerCommand('accessExplorer.unlockVbaProject', async (node?: TreeNode) => {
+      const db = node && 'db' in node ? node.db : undefined;
+      if (db) {
+        await vbaUnlock.unlock(db);
       }
     }),
   );
@@ -103,15 +113,25 @@ async function openDatabase(
     },
     async () => {
       try {
-        const bridge = await AccessBridge.open(dbPath!, {
+        const { bridge, vbaProtected } = await AccessBridge.open(dbPath!, {
           scriptPath,
           workDir,
           defaultTimeoutMs: timeoutMs,
           onCrash: (crashed) => onBridgeCrash(crashed.dbPath),
         });
         const listing = await bridge.list();
-        registry.add({ key: dbKeyFor(dbPath!), dbPath: dbPath!, bridge, listing });
+        const db: OpenDatabase = {
+          key: dbKeyFor(dbPath!),
+          dbPath: dbPath!,
+          bridge,
+          listing,
+          vbaLocked: vbaProtected,
+        };
+        registry.add(db);
         await vscode.commands.executeCommand('accessExplorer.tree.focus');
+        if (vbaProtected) {
+          void vbaUnlock.unlock(db);
+        }
       } catch (err) {
         void vscode.window.showErrorMessage(describeError(err));
       }

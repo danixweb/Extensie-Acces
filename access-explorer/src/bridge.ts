@@ -34,6 +34,8 @@ export interface BridgeOptions {
 const OPEN_TIMEOUT_MS = 60_000;
 const COMPILE_TIMEOUT_MS = 60_000;
 const QUIT_GRACE_MS = 5_000;
+/** Margin over the poll timeout the caller requests, so the bridge watchdog never fires first. */
+const UNLOCK_TIMEOUT_MARGIN_MS = 15_000;
 
 /**
  * One long-lived PowerShell process per open database. Requests are JSON lines on
@@ -53,15 +55,16 @@ export class AccessBridge {
     private readonly opts: BridgeOptions,
   ) {}
 
-  static async open(dbPath: string, opts: BridgeOptions): Promise<AccessBridge> {
+  static async open(dbPath: string, opts: BridgeOptions): Promise<{ bridge: AccessBridge; vbaProtected: boolean }> {
     const bridge = new AccessBridge(dbPath, opts);
     await bridge.start();
     try {
       const data = (await bridge.request('open', { path: dbPath }, OPEN_TIMEOUT_MS)) as {
         accessPid: number;
+        vbaProtected?: boolean;
       };
       bridge.accessPid = data.accessPid ?? 0;
-      return bridge;
+      return { bridge, vbaProtected: data.vbaProtected ?? false };
     } catch (err) {
       await bridge.dispose();
       throw err;
@@ -228,6 +231,19 @@ export class AccessBridge {
 
   async backup(targetPath: string): Promise<void> {
     await this.request('backup', { target: targetPath }, OPEN_TIMEOUT_MS);
+  }
+
+  /**
+   * Shows Access + the VBA editor and polls until the user has typed the project password into
+   * the real Access dialog, or the timeout elapses. Never throws on timeout — `unlocked: false`
+   * just means the user didn't finish in time.
+   */
+  async unlockVba(timeoutSeconds: number): Promise<{ unlocked: boolean }> {
+    return (await this.request(
+      'unlockVba',
+      { timeoutSeconds },
+      timeoutSeconds * 1000 + UNLOCK_TIMEOUT_MARGIN_MS,
+    )) as { unlocked: boolean };
   }
 
   // ---------- lifecycle ----------

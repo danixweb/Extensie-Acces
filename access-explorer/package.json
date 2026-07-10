@@ -79,6 +79,12 @@
         "title": "%cmd.revealBackups%",
         "category": "Access",
         "icon": "$(history)"
+      },
+      {
+        "command": "accessExplorer.unlockVbaProject",
+        "title": "%cmd.unlockVbaProject%",
+        "category": "Access",
+        "icon": "$(key)"
       }
     ],
     "menus": {
@@ -116,6 +122,11 @@
           "command": "accessExplorer.revealBackups",
           "when": "view == accessExplorer.tree && viewItem == database",
           "group": "9_backups@1"
+        },
+        {
+          "command": "accessExplorer.unlockVbaProject",
+          "when": "view == accessExplorer.tree && viewItem == database",
+          "group": "9_backups@2"
         }
       ],
       "commandPalette": [
@@ -129,6 +140,10 @@
         },
         {
           "command": "accessExplorer.revealBackups",
+          "when": "false"
+        },
+        {
+          "command": "accessExplorer.unlockVbaProject",
           "when": "false"
         }
       ]
@@ -194,6 +209,12 @@
           "default": 20,
           "minimum": 5,
           "description": "%cfg.operationTimeoutSeconds%"
+        },
+        "accessExplorer.vbaUnlockTimeoutSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 10,
+          "description": "%cfg.vbaUnlockTimeoutSeconds%"
         }
       }
     }

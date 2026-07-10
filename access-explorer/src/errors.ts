@@ -28,7 +28,7 @@ export class BridgeError extends Error {
 }
 
 /** Maps a bridge error to a user-facing localized message. */
-export function describeError(err: unknown): string {
+export function describeError(err: unknown, opts?: { vbaLocked?: boolean }): string {
   const detail = err instanceof Error ? err.message : String(err);
   const code = err instanceof BridgeError ? err.code : 'COM_ERROR';
   switch (code as BridgeErrorCode) {
@@ -50,6 +50,11 @@ export function describeError(err: unknown): string {
     case 'VBA_COMPILE_ERROR':
       return vscode.l10n.t('The VBA project does not compile: {0}', detail);
     case 'VBE_TRUST_REQUIRED':
+      if (opts?.vbaLocked) {
+        return vscode.l10n.t(
+          'The VBA project is password-protected. Run "Access: Unlock VBA Project" (right-click the database) and unlock it, then Refresh.',
+        );
+      }
       return vscode.l10n.t(
         'This Access version needs the VBA project object model to read class modules. In Access enable: File > Options > Trust Center > Trust Center Settings > Macro Settings > "Trust access to the VBA project object model", then Refresh.',
       );

@@ -26,10 +26,13 @@ $acCmdCompileAndSaveAllModules = 126
 Add-Type -Name Win32 -Namespace Bridge -MemberDefinition @'
 [DllImport("user32.dll")]
 public static extern uint GetWindowThreadProcessId(System.IntPtr hWnd, out uint pid);
+[DllImport("user32.dll")]
+public static extern bool SetForegroundWindow(System.IntPtr hWnd);
 '@
 
 $script:app = $null
 $script:accessPid = 0
+$script:accessHwnd = [System.IntPtr]::Zero
 $script:dbPath = $null
 
 function Write-Response([hashtable]$obj) {
@@ -97,21 +100,28 @@ function Op-Open([hashtable]$args_) {
     $script:app = New-Object -ComObject Access.Application
     $script:app.Visible = $false
     try { $script:app.UserControl = $false } catch { }
-    # Resolve the real MSACCESS.EXE PID so the extension can kill it if the bridge hangs.
+    # Resolve the real MSACCESS.EXE PID (and main window handle, reused later to bring the
+    # window to the front for VBA project unlock) so the extension can kill it if the bridge hangs.
     # hWndAccessApp surfaces as a method through PowerShell COM late binding.
     try {
-        $hwnd = [System.IntPtr][int]$script:app.hWndAccessApp()
+        $script:accessHwnd = [System.IntPtr][int]$script:app.hWndAccessApp()
         $procId = [uint32]0
-        [Bridge.Win32]::GetWindowThreadProcessId($hwnd, [ref]$procId) | Out-Null
+        [Bridge.Win32]::GetWindowThreadProcessId($script:accessHwnd, [ref]$procId) | Out-Null
         $script:accessPid = $procId
     } catch {
         [Console]::Error.WriteLine("bridge warning: could not resolve Access PID: $($_.Exception.Message)")
         $script:accessPid = 0
+        $script:accessHwnd = [System.IntPtr]::Zero
     }
     # $false = shared mode: coexists with the Access UI having the file open normally.
     $script:app.OpenCurrentDatabase($path, $false)
     $script:dbPath = $path
-    return @{ accessPid = $script:accessPid; path = $path }
+    # A password-locked VBA project (Tools > VBAProject Properties > Protection) is a different
+    # condition from the Trust Center's "Trust access to the VBA project object model" setting —
+    # reading .Protection never itself triggers the password prompt, it just reports lock state.
+    $vbaProtected = $false
+    try { $vbaProtected = ($script:app.VBE.ActiveVBProject.Protection -eq 1) } catch { $vbaProtected = $true }
+    return @{ accessPid = $script:accessPid; path = $path; vbaProtected = $vbaProtected }
 }
 
 function Op-List {
@@ -290,6 +300,37 @@ function Op-GetTableDef([hashtable]$args_) {
 function Op-GetFormDef([hashtable]$args_)   { Assert-Open; Export-ObjectText $acForm   $args_.name $args_.file | Out-Null; return @{ } }
 function Op-GetReportDef([hashtable]$args_) { Assert-Open; Export-ObjectText $acReport $args_.name $args_.file | Out-Null; return @{ } }
 
+# Shows Access + the VBA editor so the user can type/paste the project password into the real,
+# native Access dialog, then polls .Protection until it clears (or times out). There is no public
+# COM API to supply the password programmatically, so this deliberately leaves the actual entry to
+# the human — far more reliable across Access versions/locales than simulating keystrokes.
+function Op-UnlockVba([hashtable]$args_) {
+    Assert-Open
+    $timeoutSeconds = if ($args_.ContainsKey('timeoutSeconds')) { [int]$args_.timeoutSeconds } else { 120 }
+    try {
+        $script:app.Visible = $true
+        if ($script:accessHwnd -ne [System.IntPtr]::Zero) {
+            [Bridge.Win32]::SetForegroundWindow($script:accessHwnd) | Out-Null
+        }
+        try { $script:app.VBE.MainWindow.Visible = $true } catch { }
+
+        # .Protection only reports whether the project is CONFIGURED as locked (a static
+        # attribute) — it never flips after the user types the password. The real signal is
+        # whether VBComponents is actually reachable yet, the same call Get-VbComponent needs.
+        $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+        while ((Get-Date) -lt $deadline) {
+            try {
+                $null = $script:app.VBE.ActiveVBProject.VBComponents.Count
+                return @{ unlocked = $true }
+            } catch { }
+            Start-Sleep -Milliseconds 500
+        }
+        return @{ unlocked = $false }
+    } finally {
+        try { $script:app.Visible = $false } catch { }
+    }
+}
+
 function Op-Compile([hashtable]$args_) {
     Assert-Open
     try {
@@ -377,6 +418,7 @@ try {
                 'getTableDef'  { Op-GetTableDef $opArgs }
                 'getFormDef'   { Op-GetFormDef $opArgs }
                 'getReportDef' { Op-GetReportDef $opArgs }
+                'unlockVba'    { Op-UnlockVba $opArgs }
                 'compile'      { Op-Compile $opArgs }
                 'backup'       { Op-Backup $opArgs }
                 default        { throw "Unknown op: $op" }
