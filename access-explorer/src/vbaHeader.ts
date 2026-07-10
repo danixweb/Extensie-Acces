@@ -64,3 +64,30 @@ export function joinModuleHeader(header: string, body: string): string {
 export function synthesizeStandardHeader(moduleName: string): string {
   return `Attribute VB_Name = "${moduleName}"\r\n`;
 }
+
+const CODE_BEHIND_MARKER = /^CodeBehindForm\s*$/;
+const FORM_ATTRIBUTE_LINE = /^Attribute VB_\w+ = /;
+
+/**
+ * Forms/Reports SaveAsText exports are: a (possibly huge) design section of Begin/End property
+ * blocks, then a literal "CodeBehindForm" marker line, a few Attribute lines, then the VBA code —
+ * which is the last thing in the file. The design section is opaque to us: never parsed, never
+ * touched, just cached verbatim and spliced back unchanged on write (same strategy as
+ * splitModuleHeader, just with a much bigger "header"). If there is no CodeBehindForm marker, the
+ * object has no code module (HasModule=False) — caller should keep it read-only.
+ */
+export function splitFormHeader(exported: string): SplitModule | undefined {
+  const lines = exported.split(/\r\n|\n/);
+  const markerIdx = lines.findIndex((l) => CODE_BEHIND_MARKER.test(l));
+  if (markerIdx === -1) {
+    return undefined;
+  }
+  let i = markerIdx + 1;
+  while (i < lines.length && FORM_ATTRIBUTE_LINE.test(lines[i])) {
+    i++;
+  }
+  return {
+    header: lines.slice(0, i).join('\r\n') + '\r\n',
+    body: lines.slice(i).join('\r\n'),
+  };
+}

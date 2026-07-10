@@ -220,11 +220,23 @@ export class AccessBridge {
     });
   }
 
-  async getReadonlyDef(kind: 'table' | 'form' | 'report', name: string): Promise<string> {
+  async getReadonlyDef(
+    kind: 'table' | 'form' | 'report',
+    name: string,
+  ): Promise<{ text: string; enc?: string }> {
     const op = kind === 'table' ? 'getTableDef' : kind === 'form' ? 'getFormDef' : 'getReportDef';
     return this.withTempFile(async (file) => {
-      await this.request(op, { name, file });
-      return fs.readFile(file, 'utf8');
+      const data = (await this.request(op, { name, file })) as { enc?: string };
+      const text = await fs.readFile(file, 'utf8');
+      return { text, enc: data.enc };
+    });
+  }
+
+  async saveFormOrReportDef(kind: 'form' | 'report', name: string, fullText: string, enc: string): Promise<void> {
+    const op = kind === 'form' ? 'saveFormDef' : 'saveReportDef';
+    await this.withTempFile(async (file) => {
+      await fs.writeFile(file, fullText, 'utf8');
+      await this.request(op, { name, file, enc });
     });
   }
 

@@ -5,9 +5,10 @@ import { BackupManager } from './backup';
 import { AccessBridge } from './bridge';
 import { describeError } from './errors';
 import { AccessFsProvider } from './fsProvider';
-import { Category, DatabaseRegistry, dbKeyFor, OpenDatabase } from './model';
+import { Category, DatabaseRegistry, dbKeyFor, OpenDatabase, SCHEME } from './model';
 import { AccessTreeProvider, TreeNode } from './tree';
 import { VbaUnlockManager } from './vbaUnlock';
+import { VbaSymbolProvider } from './vbaSymbols';
 
 const registry = new DatabaseRegistry();
 let fsProvider: AccessFsProvider;
@@ -29,12 +30,22 @@ export function activate(context: vscode.ExtensionContext): void {
   const scriptPath = context.asAbsolutePath(path.join('ps', 'access-bridge.ps1'));
   const workDir = path.join(context.globalStorageUri.fsPath, 'work');
 
+  const treeView = vscode.window.createTreeView('accessExplorer.tree', {
+    treeDataProvider: tree,
+    showCollapseAll: true,
+  });
+
+  const updateFilterState = (): void => {
+    void vscode.commands.executeCommand('setContext', 'accessExplorer.filterActive', tree.isFiltered);
+    treeView.message = tree.isFiltered
+      ? vscode.l10n.t('Filtered by: "{0}"', tree.currentFilter)
+      : undefined;
+  };
+
   context.subscriptions.push(
     fsProvider.register(),
-    vscode.window.createTreeView('accessExplorer.tree', {
-      treeDataProvider: tree,
-      showCollapseAll: true,
-    }),
+    treeView,
+    vscode.languages.registerDocumentSymbolProvider({ scheme: SCHEME }, new VbaSymbolProvider()),
 
     vscode.commands.registerCommand('accessExplorer.openDatabase', (uri?: vscode.Uri) =>
       openDatabase(uri, scriptPath, workDir),
@@ -70,6 +81,24 @@ export function activate(context: vscode.ExtensionContext): void {
       if (db) {
         await vbaUnlock.unlock(db);
       }
+    }),
+
+    vscode.commands.registerCommand('accessExplorer.filterTree', async () => {
+      const entered = await vscode.window.showInputBox({
+        value: tree.currentFilter,
+        placeHolder: vscode.l10n.t('* for everything, or text to search for'),
+        prompt: vscode.l10n.t('Show only objects whose name contains this text'),
+      });
+      if (entered === undefined) {
+        return;
+      }
+      tree.setFilter(entered === '*' ? '' : entered);
+      updateFilterState();
+    }),
+
+    vscode.commands.registerCommand('accessExplorer.clearTreeFilter', () => {
+      tree.setFilter('');
+      updateFilterState();
     }),
   );
 }

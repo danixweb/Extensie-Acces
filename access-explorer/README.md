@@ -6,12 +6,15 @@ Extensie VS Code pentru lucrul cu baze de date **Microsoft Access (.accdb)** pri
 
 - **Deschidere** `.accdb` din comandă (`Access: Open Access Database`) sau click-dreapta pe fișier în Explorer.
 - **TreeView** în sidebar cu toate componentele: Tabele, Interogări, Formulare, Rapoarte, Macro-uri, Module VBA (standard + clasă).
+- **Filtrare arbore**: buton *Filter Objects* în titlul view-ului — arată doar obiectele al căror nume conține textul căutat (case-insensitive); *Clear Filter* revine la lista completă.
+- **Navigare cod stil VBA IDE**: panoul *Outline* și `Ctrl+Shift+O` (Go to Symbol) grupează subrutinele fiecărui Modul/Formular/Raport exact ca dropdown-urile din editorul VBA — `(General)` pentru procedurile independente, apoi câte un grup per control (`cmdSave`, `Form`, etc.) cu evenimentele lui; selectarea sare direct la începutul codului.
 - **Editare cu scriere înapoi** în baza de date pentru:
   - **Module VBA** (`.bas` / `.cls`) — cu syntax highlighting VBA inclus;
+  - **Codul VBA al Formularelor/Rapoartelor** (`.form.txt` / `.report.txt`) — fereastra arată **doar codul**, fără blocurile de design (proprietăți/poziții control); partea de design rămâne needitabilă din extensie, dar e păstrată intactă la scriere;
   - **Macro-uri** (`.mac`) — în serializarea text Access;
   - **SQL-ul interogărilor** (`.sql`) — cu validare de sintaxă la salvare (DAO respinge SQL invalid, documentul rămâne dirty).
-- **Read-only** pentru definițiile tabelelor, formularelor și rapoartelor (lacăt în editor).
-- **Ctrl+S** salvează direct în `.accdb`; după salvarea unui modul rulează o **verificare de compilare VBA** și avertizează dacă proiectul nu compilează.
+- **Read-only** pentru definițiile tabelelor (lacăt în editor); Formularele/Rapoartele sunt read-only doar dacă nu au deloc modul de cod (`HasModule=False`).
+- **Ctrl+S** salvează direct în `.accdb`; după salvarea unui modul sau a codului unui Formular/Raport rulează o **verificare de compilare VBA** și avertizează dacă proiectul nu compilează.
 - **Backup automat** înainte de fiecare scriere în `<folder DB>\.accdb-backups\<nume>.<timestamp>.accdb`, cu retenție configurabilă. Dacă backup-ul eșuează, scrierea este anulată.
 - **Detectare conflicte**: dacă obiectul a fost modificat în Access după deschidere, salvarea e refuzată până rulezi Refresh.
 - **Refresh** recitește structura bazei de date și reîncarcă editoarele deschise.
@@ -31,7 +34,7 @@ MSACCESS.EXE (instanță ascunsă, deschidere SHARED)
 
 - Comunicarea COM este **izolată într-un proces separat** — UI-ul extensiei nu se blochează niciodată.
 - Modulele VBA se citesc/scriu cu `Application.SaveAsText / LoadFromText` — **nu** necesită setarea „Trust access to the VBA project object model".
-- Antetul tehnic al exportului (`VERSION/BEGIN/Attribute VB_*`) este ascuns la editare și restaurat identic la scriere.
+- Antetul tehnic al exportului (`VERSION/BEGIN/Attribute VB_*`) este ascuns la editare și restaurat identic la scriere. La Formulare/Rapoarte, tot ce e înainte de marker-ul `CodeBehindForm` (adică întreg design-ul) e tratat la fel — un bloc opac, niciodată parsat, doar păstrat verbatim și recompus neschimbat la scriere.
 - La închidere (sau crash) extensia închide Access (`Quit acQuitSaveNone`), eliberează obiectele COM și, ca ultimă soluție, omoară procesul MSACCESS.EXE după PID și șterge `.laccdb` rămas blocat — fără instanțe orfane.
 
 ## Dependențe
@@ -69,6 +72,9 @@ code --install-extension .\access-explorer-0.1.0.vsix
 6. SQL invalid (`SELEC *`) → salvarea eșuează, documentul rămâne dirty.
 7. Deschide DB-ul exclusiv în Access (`msaccess /excl`) → extensia raportează DB blocat; deschis normal → coexistă.
 8. Omoară `powershell.exe` din Task Manager → extensia anunță pierderea conexiunii și nu rămâne MSACCESS.EXE orfan.
+9. *Filter Objects* → scrie un fragment de nume → arborele arată doar potrivirile (și categoriile cu 0 rezultate dispar); *Clear Filter* → revine complet.
+10. Deschide un Formular/Raport cu cod → `Ctrl+Shift+O` → confirmă gruparea `(General)` + `Form`/`Report` + fiecare control, cu subrutinele lor; selectarea unui control fără alt sub-selectat sare la prima lui subrutină.
+11. Pe o **copie** a bazei: editează codul unui Formular/Raport (comentariu inofensiv), Ctrl+S, verifică în Access (deschis normal) că obiectul se deschide și arată identic, iar modificarea e prezentă.
 
 ## Limitări și riscuri
 
@@ -79,6 +85,10 @@ code --install-extension .\access-explorer-0.1.0.vsix
 - **Scriere în mod shared = last-writer-wins** dacă doi utilizatori editează același obiect simultan; atenuat prin backup automat + detectarea conflictelor la salvare.
 - Verificarea de compilare folosește `acCmdCompileAndSaveAllModules`, care **salvează toate modulele**, nu doar cel editat (dezactivabilă din `accessExplorer.compileAfterSave`).
 - **Baze protejate cu parolă / criptate** nu sunt suportate în această versiune.
+- **Editarea codului Formularelor/Rapoartelor** presupune recompunerea design-ului (nemodificat) cu
+  codul editat, folosind marker-ul `CodeBehindForm` din exportul Access — **testează pe o copie**
+  înainte de a salva pe o bază reală de producție; backup-ul automat rămâne plasa de siguranță
+  principală dacă ceva nu corespunde exact formatului așteptat.
 - **Proiect VBA protejat cu parolă** (Tools > VBAProject Properties > Protection): la deschidere,
   extensia detectează blocajul și oferă comanda *Unlock VBA Project* — parola se copiază în
   clipboard, iar tu o lipești în dialogul nativ Access care apare (nu există API COM public pentru

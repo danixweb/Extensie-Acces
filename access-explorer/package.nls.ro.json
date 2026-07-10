@@ -10,6 +10,8 @@
   "cmd.openObject": "Deschide obiect Access",
   "cmd.revealBackups": "Deschide folderul de backup-uri",
   "cmd.unlockVbaProject": "Deblochează proiectul VBA",
+  "cmd.filterTree": "Filtrează obiectele",
+  "cmd.clearTreeFilter": "Șterge filtrul",
   "cfg.backupBeforeWrite": "Creează o copie de siguranță a fișierului .accdb înainte de fiecare scriere.",
   "cfg.backupCount": "Câte copii de siguranță se păstrează per bază de date (cele mai vechi se șterg).",
   "cfg.backupDebounceSeconds": "Numărul minim de secunde între două backup-uri ale aceleiași baze de date (0 = backup la fiecare salvare).",

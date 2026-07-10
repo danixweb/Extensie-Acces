@@ -9,7 +9,13 @@ export type Category = 'Tables' | 'Queries' | 'Forms' | 'Reports' | 'Macros' | '
 
 export const CATEGORIES: Category[] = ['Tables', 'Queries', 'Forms', 'Reports', 'Macros', 'Modules'];
 
-export const EDITABLE_CATEGORIES: ReadonlySet<Category> = new Set(['Queries', 'Macros', 'Modules']);
+export const EDITABLE_CATEGORIES: ReadonlySet<Category> = new Set([
+  'Queries',
+  'Macros',
+  'Modules',
+  'Forms',
+  'Reports',
+]);
 
 export const EXT_FOR: Record<Exclude<Category, 'Modules'>, string> = {
   Tables: '.table.txt',

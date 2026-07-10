@@ -12,7 +12,12 @@ import {
   parseUri,
   SCHEME,
 } from './model';
-import { joinModuleHeader, splitModuleHeader, synthesizeStandardHeader } from './vbaHeader';
+import {
+  joinModuleHeader,
+  splitFormHeader,
+  splitModuleHeader,
+  synthesizeStandardHeader,
+} from './vbaHeader';
 
 interface Entry {
   category: Category;
@@ -29,6 +34,8 @@ interface Entry {
   viaVbe?: boolean;
   /** Encoding of the macro export, reused on write-back. */
   macroEnc?: string;
+  /** Encoding of a Form/Report code export, reused on write-back. */
+  codeEnc?: string;
 }
 
 function normalize(text: string): string {
@@ -141,6 +148,10 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
       throw vscode.FileSystemError.NoPermissions(uri);
     }
     const entry = await this.ensureEntry(uri);
+    if (entry.readonly) {
+      // Forms/Reports with no code-behind module (HasModule=False) have nothing to write.
+      throw vscode.FileSystemError.NoPermissions(uri);
+    }
     const newText = Buffer.from(content).toString('utf8');
 
     try {
@@ -166,6 +177,16 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
         case 'Macros':
           await db.bridge.saveMacro(name, newText, entry.macroEnc ?? 'utf16');
           break;
+        case 'Forms':
+        case 'Reports': {
+          const kind = category === 'Forms' ? 'form' : 'report';
+          // entry.header is the untouched design blob (Begin/End blocks) cached at load time —
+          // never parsed, just spliced back verbatim ahead of the edited code.
+          const joined = joinModuleHeader(entry.header ?? '', newText);
+          await db.bridge.saveFormOrReportDef(kind, name, joined, entry.codeEnc ?? 'ansi');
+          this.scheduleCompileCheck(db, name);
+          break;
+        }
       }
     } catch (err) {
       throw vscode.FileSystemError.Unavailable(describeError(err, { vbaLocked: db.vbaLocked }));
@@ -181,6 +202,7 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
       entry.header = fresh.header;
       entry.viaVbe = fresh.viaVbe;
       entry.macroEnc = fresh.macroEnc ?? entry.macroEnc;
+      entry.codeEnc = fresh.codeEnc ?? entry.codeEnc;
     } catch {
       entry.text = newText;
       entry.baseline = newText;
@@ -265,12 +287,27 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
         const { text, enc } = await db.bridge.getMacro(name);
         return { ...base, readonly: false, text, baseline: text, macroEnc: enc };
       }
-      case 'Tables':
+      case 'Tables': {
+        const { text } = await db.bridge.getReadonlyDef('table', name);
+        return { ...base, readonly: true, text, baseline: text };
+      }
       case 'Forms':
       case 'Reports': {
-        const kind = category === 'Tables' ? 'table' : category === 'Forms' ? 'form' : 'report';
-        const text = await db.bridge.getReadonlyDef(kind, name);
-        return { ...base, readonly: true, text, baseline: text };
+        const kind = category === 'Forms' ? 'form' : 'report';
+        const { text: fullText, enc } = await db.bridge.getReadonlyDef(kind, name);
+        const split = splitFormHeader(fullText);
+        if (!split) {
+          // No CodeBehindForm section (HasModule=False) — nothing to edit, show as-is.
+          return { ...base, readonly: true, text: fullText, baseline: fullText };
+        }
+        return {
+          ...base,
+          readonly: false,
+          text: split.body,
+          baseline: split.body,
+          header: split.header,
+          codeEnc: enc,
+        };
       }
     }
   }
@@ -297,6 +334,19 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
       case 'Macros':
         current = (await db.bridge.getMacro(entry.name)).text;
         break;
+      case 'Forms':
+      case 'Reports': {
+        const kind = entry.category === 'Forms' ? 'form' : 'report';
+        const fresh = await db.bridge.getReadonlyDef(kind, entry.name);
+        const split = splitFormHeader(fresh.text);
+        if (!split) {
+          return;
+        }
+        entry.header = split.header; // freshest design blob wins
+        entry.codeEnc = fresh.enc ?? entry.codeEnc;
+        current = split.body;
+        break;
+      }
       default:
         return;
     }

@@ -85,6 +85,18 @@
         "title": "%cmd.unlockVbaProject%",
         "category": "Access",
         "icon": "$(key)"
+      },
+      {
+        "command": "accessExplorer.filterTree",
+        "title": "%cmd.filterTree%",
+        "category": "Access",
+        "icon": "$(search)"
+      },
+      {
+        "command": "accessExplorer.clearTreeFilter",
+        "title": "%cmd.clearTreeFilter%",
+        "category": "Access",
+        "icon": "$(clear-all)"
       }
     ],
     "menus": {
@@ -105,6 +117,16 @@
           "command": "accessExplorer.refresh",
           "when": "view == accessExplorer.tree",
           "group": "navigation@2"
+        },
+        {
+          "command": "accessExplorer.filterTree",
+          "when": "view == accessExplorer.tree",
+          "group": "navigation@3"
+        },
+        {
+          "command": "accessExplorer.clearTreeFilter",
+          "when": "view == accessExplorer.tree && accessExplorer.filterActive",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -144,6 +166,14 @@
         },
         {
           "command": "accessExplorer.unlockVbaProject",
+          "when": "false"
+        },
+        {
+          "command": "accessExplorer.filterTree",
+          "when": "false"
+        },
+        {
+          "command": "accessExplorer.clearTreeFilter",
           "when": "false"
         }
       ]

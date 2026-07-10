@@ -318,8 +318,22 @@ function Op-GetTableDef([hashtable]$args_) {
     return @{ }
 }
 
-function Op-GetFormDef([hashtable]$args_)   { Assert-Open; Export-ObjectText $acForm   $args_.name $args_.file | Out-Null; return @{ } }
-function Op-GetReportDef([hashtable]$args_) { Assert-Open; Export-ObjectText $acReport $args_.name $args_.file | Out-Null; return @{ } }
+function Op-GetFormDef([hashtable]$args_)   { Assert-Open; $r = Export-ObjectText $acForm   $args_.name $args_.file; return @{ enc = $r.enc } }
+function Op-GetReportDef([hashtable]$args_) { Assert-Open; $r = Export-ObjectText $acReport $args_.name $args_.file; return @{ enc = $r.enc } }
+
+function Op-SaveFormDef([hashtable]$args_) {
+    Assert-Open
+    $enc = if ($args_.ContainsKey('enc') -and $args_.enc) { [string]$args_.enc } else { 'ansi' }
+    Import-ObjectText $acForm $args_.name $args_.file $enc
+    return @{ saved = $true }
+}
+
+function Op-SaveReportDef([hashtable]$args_) {
+    Assert-Open
+    $enc = if ($args_.ContainsKey('enc') -and $args_.enc) { [string]$args_.enc } else { 'ansi' }
+    Import-ObjectText $acReport $args_.name $args_.file $enc
+    return @{ saved = $true }
+}
 
 # Shows Access + the VBA editor so the user can type/paste the project password into the real,
 # native Access dialog, then polls .Protection until it clears (or times out). There is no public
@@ -439,6 +453,8 @@ try {
                 'getTableDef'  { Op-GetTableDef $opArgs }
                 'getFormDef'   { Op-GetFormDef $opArgs }
                 'getReportDef' { Op-GetReportDef $opArgs }
+                'saveFormDef'  { Op-SaveFormDef $opArgs }
+                'saveReportDef' { Op-SaveReportDef $opArgs }
                 'unlockVba'    { Op-UnlockVba $opArgs }
                 'compile'      { Op-Compile $opArgs }
                 'backup'       { Op-Backup $opArgs }

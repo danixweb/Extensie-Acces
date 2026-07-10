@@ -53,6 +53,7 @@ function categoryLabel(category: Category): string {
 export class AccessTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly changeEmitter = new vscode.EventEmitter<TreeNode | undefined>();
   readonly onDidChangeTreeData = this.changeEmitter.event;
+  private filterText = '';
 
   constructor(private readonly registry: DatabaseRegistry) {
     registry.onDidChange(() => this.changeEmitter.fire(undefined));
@@ -60,6 +61,27 @@ export class AccessTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   refresh(): void {
     this.changeEmitter.fire(undefined);
+  }
+
+  get isFiltered(): boolean {
+    return this.filterText.length > 0;
+  }
+
+  get currentFilter(): string {
+    return this.filterText;
+  }
+
+  setFilter(text: string): void {
+    this.filterText = text.trim().toLowerCase();
+    this.refresh();
+  }
+
+  private filteredNames(db: OpenDatabase, category: Category): string[] {
+    const names = listingFor(db.listing, category);
+    if (!this.filterText) {
+      return names;
+    }
+    return names.filter((n) => n.toLowerCase().includes(this.filterText));
   }
 
   getTreeItem(node: TreeNode): vscode.TreeItem {
@@ -77,7 +99,7 @@ export class AccessTreeProvider implements vscode.TreeDataProvider<TreeNode> {
         return item;
       }
       case 'category': {
-        const count = listingFor(node.db.listing, node.category).length;
+        const count = this.filteredNames(node.db, node.category).length;
         const item = new vscode.TreeItem(
           categoryLabel(node.category),
           count > 0
@@ -110,12 +132,12 @@ export class AccessTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       return this.registry.all.map((db) => ({ kind: 'db', db }) satisfies DbNode);
     }
     if (node.kind === 'db') {
-      return CATEGORIES.map(
-        (category) => ({ kind: 'category', db: node.db, category }) satisfies CategoryNode,
-      );
+      return CATEGORIES.filter(
+        (category) => !this.isFiltered || this.filteredNames(node.db, category).length > 0,
+      ).map((category) => ({ kind: 'category', db: node.db, category }) satisfies CategoryNode);
     }
     if (node.kind === 'category') {
-      return listingFor(node.db.listing, node.category).map(
+      return this.filteredNames(node.db, node.category).map(
         (name) =>
           ({ kind: 'object', db: node.db, category: node.category, name }) satisfies ObjectNode,
       );
