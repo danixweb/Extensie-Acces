@@ -8,6 +8,7 @@ import {
   CATEGORIES,
   Category,
   DatabaseRegistry,
+  decodeFsName,
   encodeFsName,
   extFor,
   listingFor,
@@ -108,6 +109,189 @@ export class AiMirrorManager implements vscode.Disposable {
     await this.pruneStale(state, seen);
   }
 
+  /**
+   * Entry point for automatic mirroring (database open, refresh): does a full `materialize()`
+   * the first time a database is mirrored, otherwise a cheap `quickSync()` that never re-reads
+   * unchanged objects over COM. Full re-reads only happen through the explicit re-mirror command.
+   */
+  async sync(
+    db: OpenDatabase,
+    token?: vscode.CancellationToken,
+    progress?: vscode.Progress<{ message?: string; increment?: number }>,
+  ): Promise<void> {
+    if (!mirrorEnabled()) {
+      return;
+    }
+    const dir = this.mirrorDirFor(db);
+    if (!(await this.pathExists(dir))) {
+      await this.materialize(db, token, progress);
+      return;
+    }
+    await this.quickSync(db, dir, token, progress);
+  }
+
+  /**
+   * Diffs the on-disk mirror (file names only, no COM) against the current listing to find
+   * objects newly created in Access since the last mirror pass, and mirror-side files for
+   * objects renamed/deleted in Access. Only genuinely new objects pay for a COM read — objects
+   * already mirrored and still present are left untouched.
+   */
+  private async quickSync(
+    db: OpenDatabase,
+    dir: string,
+    token?: vscode.CancellationToken,
+    progress?: vscode.Progress<{ message?: string; increment?: number }>,
+  ): Promise<void> {
+    const state = this.stateFor(db, dir);
+    const perCategory: { category: Category; added: string[]; removed: string[] }[] = [];
+    for (const category of CATEGORIES) {
+      const mirrored = await this.mirroredNames(dir, category);
+      const current = new Set(listingFor(db.listing, category));
+      const added = [...current].filter((name) => !mirrored.has(name));
+      const removed = [...mirrored].filter((name) => !current.has(name));
+      if (added.length > 0 || removed.length > 0) {
+        perCategory.push({ category, added, removed });
+      }
+    }
+    if (perCategory.length === 0) {
+      return; // nothing new or removed — no COM reads, no disk writes
+    }
+    const seen = new Set<string>();
+    const total = perCategory.reduce((n, c) => n + c.added.length, 0) || 1;
+    let done = 0;
+    for (const { category, added, removed } of perCategory) {
+      for (const name of added) {
+        if (token?.isCancellationRequested) {
+          return;
+        }
+        try {
+          await this.materializeOne(db, state, category, name, seen);
+        } catch (err) {
+          console.warn(`[access-explorer ai-mirror] failed to export ${category}/${name}: ${describeError(err)}`);
+        }
+        done++;
+        progress?.report({ message: `${done} / ${total}`, increment: 100 / total });
+      }
+      for (const name of removed) {
+        await this.removeMirrorFile(state, dir, category, name);
+      }
+    }
+  }
+
+  /** Decoded Access object names already mirrored on disk for a category — a plain directory listing, no COM. */
+  private async mirroredNames(dir: string, category: Category): Promise<Set<string>> {
+    const names = new Set<string>();
+    let entries: string[];
+    try {
+      entries = await fs.readdir(path.join(dir, category));
+    } catch {
+      return names; // category folder doesn't exist yet — nothing mirrored
+    }
+    for (const entry of entries) {
+      const decoded = this.decodeMirrorFileName(category, entry);
+      if (decoded) {
+        names.add(decoded);
+      }
+    }
+    return names;
+  }
+
+  /** Reverses materializeOne's `encodeFsName(name) + ext` back into the original Access object name. */
+  private decodeMirrorFileName(category: Category, fileName: string): string | undefined {
+    const ext = extFor(category, fileName);
+    if (!ext) {
+      return undefined; // e.g. a stray ".prev" snapshot file
+    }
+    return decodeFsName(fileName.slice(0, fileName.length - ext.length));
+  }
+
+  /** Reverses a mirror file's on-disk path back into (category, name), for watcher events that arrive as bare paths. */
+  private parseMirrorFilePath(state: DbMirrorState, filePath: string): { category: Category; name: string } | undefined {
+    const segments = path.relative(state.dir, filePath).split(path.sep);
+    if (segments.length !== 2 || !CATEGORIES.includes(segments[0] as Category)) {
+      return undefined;
+    }
+    const category = segments[0] as Category;
+    const name = this.decodeMirrorFileName(category, segments[1]);
+    return name ? { category, name } : undefined;
+  }
+
+  private async removeMirrorFile(state: DbMirrorState, dir: string, category: Category, name: string): Promise<void> {
+    // The extension isn't known without a COM read, but readdir gave us the exact file name we scanned.
+    let entries: string[];
+    try {
+      entries = await fs.readdir(path.join(dir, category));
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (this.decodeMirrorFileName(category, entry) !== name) {
+        continue;
+      }
+      const filePath = path.join(dir, category, entry);
+      const key = filePath.toLowerCase();
+      const record = state.byPath.get(key);
+      if (record) {
+        state.byPath.delete(key);
+        state.byUri.delete(record.uri.toString());
+      }
+      await fs.rm(filePath, { force: true }).catch(() => undefined);
+      await fs.rm(filePath + '.prev', { force: true }).catch(() => undefined);
+    }
+  }
+
+  private async pathExists(p: string): Promise<boolean> {
+    try {
+      await fs.access(p);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Lazily populates a MirrorRecord for an object that quickSync left untouched (already
+   * mirrored, unchanged), via a single COM read — used the first time such an object is edited
+   * from either side after a quick, incremental open. Never overwrites the on-disk mirror file,
+   * so a pending external edit is preserved for the caller to push back to Access.
+   */
+  private async ensureRecord(
+    db: OpenDatabase,
+    state: DbMirrorState,
+    category: Category,
+    name: string,
+  ): Promise<MirrorRecord | undefined> {
+    const existingByName = [...state.byPath.values()].find((r) => r.category === category && r.name === name);
+    if (existingByName) {
+      return existingByName;
+    }
+    try {
+      const { uri, text, readonly } = await this.fsProvider.readObject(db, category, name);
+      const fileName = uri.path.slice(uri.path.lastIndexOf('/') + 1);
+      const ext = extFor(category, fileName);
+      if (!ext) {
+        return undefined;
+      }
+      const resolvedPath = path.join(state.dir, category, encodeFsName(name) + ext);
+      const key = resolvedPath.toLowerCase();
+      const record: MirrorRecord = {
+        uri,
+        category,
+        name,
+        filePath: resolvedPath,
+        readonly,
+        canonicalText: text,
+        lastWrittenHash: sha1(text),
+      };
+      state.byPath.set(key, record);
+      state.byUri.set(uri.toString(), record);
+      return record;
+    } catch (err) {
+      console.warn(`[access-explorer ai-mirror] failed to hydrate ${category}/${name}: ${describeError(err)}`);
+      return undefined;
+    }
+  }
+
   /** Stops watching and removes the mirror folder — it is a derived artifact, not a durable store. */
   async close(db: OpenDatabase): Promise<void> {
     const state = this.perDb.get(db.key);
@@ -203,9 +387,12 @@ export class AiMirrorManager implements vscode.Disposable {
       return;
     }
     const state = this.perDb.get(parsed.key);
-    const record = state?.byUri.get(uri.toString());
     const db = this.registry.get(parsed.key);
-    if (!state || !record || !db) {
+    if (!state || !db) {
+      return;
+    }
+    const record = state.byUri.get(uri.toString()) ?? (await this.ensureRecord(db, state, parsed.category, parsed.name));
+    if (!record) {
       return;
     }
     const fresh = await this.fsProvider.readObject(db, record.category, record.name);
@@ -261,14 +448,22 @@ export class AiMirrorManager implements vscode.Disposable {
       return; // category folders (e.g. "Modules") fire their own watcher events; nothing to sync
     }
     const state = this.perDb.get(dbKey);
-    const record = state?.byPath.get(filePath.toLowerCase());
+    const db = this.registry.get(dbKey);
+    let record = state?.byPath.get(filePath.toLowerCase());
+    if (!record && state && db) {
+      // Not yet hydrated — this may be an object quickSync left untouched (already mirrored,
+      // unchanged) rather than an unknown file. Confirm it against the current listing first.
+      const parsed = this.parseMirrorFilePath(state, filePath);
+      if (parsed && listingFor(db.listing, parsed.category).includes(parsed.name)) {
+        record = await this.ensureRecord(db, state, parsed.category, parsed.name);
+      }
+    }
     if (!state || !record) {
       void vscode.window.showWarningMessage(
         vscode.l10n.t('"{0}" in the AI mirror does not match a known database object; ignoring.', path.basename(filePath)),
       );
       return;
     }
-    const db = this.registry.get(dbKey);
     if (!db) {
       return; // database was closed — close() already tore this mirror down
     }
@@ -336,7 +531,14 @@ export class AiMirrorManager implements vscode.Disposable {
 
   private async handleDiskDelete(dbKey: string, filePath: string): Promise<void> {
     const state = this.perDb.get(dbKey);
-    const record = state?.byPath.get(filePath.toLowerCase());
+    const db = this.registry.get(dbKey);
+    let record = state?.byPath.get(filePath.toLowerCase());
+    if (!record && state && db) {
+      const parsed = this.parseMirrorFilePath(state, filePath);
+      if (parsed && listingFor(db.listing, parsed.category).includes(parsed.name)) {
+        record = await this.ensureRecord(db, state, parsed.category, parsed.name);
+      }
+    }
     if (!record) {
       return;
     }

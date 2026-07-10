@@ -99,6 +99,12 @@
         "icon": "$(folder)"
       },
       {
+        "command": "accessExplorer.remirror",
+        "title": "%cmd.remirror%",
+        "category": "Access",
+        "icon": "$(sync)"
+      },
+      {
         "command": "accessExplorer.unlockVbaProject",
         "title": "%cmd.unlockVbaProject%",
         "category": "Access",
@@ -192,6 +198,11 @@
           "command": "accessExplorer.revealAiMirror",
           "when": "view == accessExplorer.tree && viewItem == database",
           "group": "9_backups@3"
+        },
+        {
+          "command": "accessExplorer.remirror",
+          "when": "view == accessExplorer.tree && viewItem == database",
+          "group": "9_backups@4"
         }
       ],
       "commandPalette": [

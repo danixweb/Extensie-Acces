@@ -68,6 +68,13 @@ export function activate(context: vscode.ExtensionContext): void {
       refresh(node && 'db' in node ? node.db.key : undefined),
     ),
 
+    vscode.commands.registerCommand('accessExplorer.remirror', (node?: TreeNode) => {
+      const targets = node && 'db' in node ? [node.db] : registry.all;
+      for (const db of targets) {
+        materializeMirror(db);
+      }
+    }),
+
     vscode.commands.registerCommand('accessExplorer.closeDatabase', async (node?: TreeNode) => {
       const key = node && 'db' in node ? node.db.key : undefined;
       if (key) {
@@ -202,16 +209,29 @@ async function openDatabase(
     },
   );
   if (openedDb) {
-    void materializeMirror(openedDb);
+    void syncMirror(openedDb);
   }
 }
 
-/** Fire-and-forget: exports the whole listing to the on-disk AI mirror, in its own cancellable progress. */
-function materializeMirror(db: OpenDatabase): void {
+/** Fire-and-forget: brings the on-disk AI mirror up to date, in its own cancellable progress. Full
+ *  re-export only the first time a database is mirrored; otherwise a cheap incremental check. */
+function syncMirror(db: OpenDatabase): void {
   void vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: vscode.l10n.t('Mirroring {0} objects for AI tools…', registry.labelFor(db)),
+      cancellable: true,
+    },
+    (progress, token) => mirror.sync(db, token, progress),
+  );
+}
+
+/** Fire-and-forget: forces a full re-export of every object to the on-disk AI mirror. */
+function materializeMirror(db: OpenDatabase): void {
+  void vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: vscode.l10n.t('Re-mirroring {0} objects for AI tools…', registry.labelFor(db)),
       cancellable: true,
     },
     (progress, token) => mirror.materialize(db, token, progress),
@@ -224,7 +244,7 @@ async function refresh(key?: string): Promise<void> {
     try {
       db.listing = await db.bridge.list();
       fsProvider.invalidate(db.key);
-      void mirror.materialize(db);
+      void syncMirror(db);
     } catch (err) {
       void vscode.window.showErrorMessage(
         vscode.l10n.t('Refresh failed for {0}: {1}', registry.labelFor(db), describeError(err)),
