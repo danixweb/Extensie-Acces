@@ -32,5 +32,13 @@
   "$(book) Whole module code": "$(book) Tot codul modulului",
   "$(symbol-class) All events of {0}": "$(symbol-class) Toate evenimentele lui {0}",
   "Select the code to focus the AI on": "Selectează codul pe care să se concentreze AI-ul",
-  "Opened, but the session-start backup failed: {0}": "Deschis, dar backup-ul de început de sesiune a eșuat: {0}"
+  "Opened, but the session-start backup failed: {0}": "Deschis, dar backup-ul de început de sesiune a eșuat: {0}",
+  "Mirroring {0} objects for AI tools…": "Se oglindesc {0} obiecte pentru unelte AI…",
+  "\"{0}\" in the AI mirror does not match a known database object; ignoring.": "„{0}” din oglinda AI nu corespunde niciunui obiect cunoscut din baza de date; se ignoră.",
+  "\"{0}\" ({1}) is read-only in the AI mirror — your change was discarded. Edit it in Access instead.": "„{0}” ({1}) este needitabil (read-only) în oglinda AI — modificarea a fost anulată. Editează-l în Access.",
+  "AI edit saved to Access: {0} ({1}). Test it live in Access.": "Modificare AI salvată în Access: {0} ({1}). Testeaz-o live în Access.",
+  "Revert": "Revino",
+  "Access Explorer does not delete database objects through the AI mirror; \"{0}\" has been restored.": "Access Explorer nu șterge obiecte din baza de date prin oglinda AI; „{0}” a fost restaurat.",
+  "Reverted {0} ({1}).": "S-a revenit la varianta anterioară: {0} ({1}).",
+  "Opening in Access Explorer…": "Se deschide în Access Explorer…"
 }

@@ -1,5 +1,6 @@
 {
   "ext.displayName": "Access Explorer",
+  "customEditor.database.displayName": "Access Database (Access Explorer)",
   "ext.description": "Browse and edit Microsoft Access (.accdb) databases — VBA modules, macros and query SQL — directly from VS Code via COM automation.",
   "view.container.title": "Access Explorer",
   "view.tree.name": "Databases",
@@ -13,6 +14,7 @@
   "cmd.filterTree": "Filter Objects",
   "cmd.clearTreeFilter": "Clear Filter",
   "cmd.selectForAi": "Select Code for AI",
+  "cmd.revealAiMirror": "Open AI Mirror Folder",
   "cfg.backupBeforeWrite": "Create a backup copy of the .accdb file before every write.",
   "cfg.backupOnOpen": "Create a timestamped backup copy of the .accdb file when it is opened, marking the start of a work session (in addition to the per-write backups).",
   "cfg.backupCount": "How many backup copies to keep per database (oldest are deleted).",
@@ -20,5 +22,6 @@
   "cfg.compileAfterSave": "Run a VBA compile check after saving a module and warn if the project does not compile.",
   "cfg.operationTimeoutSeconds": "Timeout in seconds for Access COM operations (opening the database and compiling use a fixed 60s).",
   "cfg.vbaUnlockTimeoutSeconds": "How many seconds to wait for you to enter the VBA project password in the Access dialog before giving up.",
-  "cfg.bypassStartup": "Skip the database's Startup form and AutoExec macro when opening it (the classic Shift-bypass technique). Has no effect if the database's AllowBypassKey property was disabled by its developer."
+  "cfg.bypassStartup": "Skip the database's Startup form and AutoExec macro when opening it (the classic Shift-bypass technique). Has no effect if the database's AllowBypassKey property was disabled by its developer.",
+  "cfg.aiMirror.enabled": "Mirror every table, query, form, report, macro and module as a real file on disk (in a .accdb-ai folder next to the database) so AI coding tools such as Claude Code can find and edit them directly. Edits to mirrored files are saved back into Access automatically, with a Revert option."
 }

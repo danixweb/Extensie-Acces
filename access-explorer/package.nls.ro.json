@@ -1,5 +1,6 @@
 {
   "ext.displayName": "Access Explorer",
+  "customEditor.database.displayName": "Bază de date Access (Access Explorer)",
   "ext.description": "Explorează și editează baze de date Microsoft Access (.accdb) — module VBA, macro-uri și SQL-ul interogărilor — direct din VS Code prin automatizare COM.",
   "view.container.title": "Access Explorer",
   "view.tree.name": "Baze de date",
@@ -13,6 +14,7 @@
   "cmd.filterTree": "Filtrează obiectele",
   "cmd.clearTreeFilter": "Șterge filtrul",
   "cmd.selectForAi": "Selectează codul pentru AI",
+  "cmd.revealAiMirror": "Deschide folderul oglindă AI",
   "cfg.backupBeforeWrite": "Creează o copie de siguranță a fișierului .accdb înainte de fiecare scriere.",
   "cfg.backupOnOpen": "Creează o copie de siguranță cu timestamp a fișierului .accdb la deschidere, marcând începutul unei sesiuni de lucru (pe lângă backup-urile per-scriere).",
   "cfg.backupCount": "Câte copii de siguranță se păstrează per bază de date (cele mai vechi se șterg).",
@@ -20,5 +22,6 @@
   "cfg.compileAfterSave": "Rulează o verificare de compilare VBA după salvarea unui modul și avertizează dacă proiectul nu compilează.",
   "cfg.operationTimeoutSeconds": "Timeout în secunde pentru operațiile COM Access (deschiderea bazei de date și compilarea folosesc 60s fix).",
   "cfg.vbaUnlockTimeoutSeconds": "Câte secunde se așteaptă să introduci parola proiectului VBA în dialogul Access înainte de a renunța.",
-  "cfg.bypassStartup": "Sare peste formularul Startup și macro-ul AutoExec ale bazei de date la deschidere (tehnica clasică Shift-bypass). Nu are efect dacă proprietatea AllowBypassKey a bazei a fost dezactivată de dezvoltator."
+  "cfg.bypassStartup": "Sare peste formularul Startup și macro-ul AutoExec ale bazei de date la deschidere (tehnica clasică Shift-bypass). Nu are efect dacă proprietatea AllowBypassKey a bazei a fost dezactivată de dezvoltator.",
+  "cfg.aiMirror.enabled": "Oglindește fiecare tabel, interogare, formular, raport, macro și modul ca fișier real pe disc (într-un folder .accdb-ai lângă baza de date), astfel încât uneltele AI precum Claude Code să le poată găsi și edita direct. Modificările fișierelor oglindă sunt salvate automat înapoi în Access, cu opțiune de revenire (Revert)."
 }

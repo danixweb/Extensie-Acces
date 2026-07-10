@@ -2,11 +2,13 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { registerSelectForAi } from './aiContext';
+import { AiMirrorManager } from './aiMirror';
 import { BackupManager } from './backup';
 import { AccessBridge } from './bridge';
 import { describeError } from './errors';
 import { AccessFsProvider } from './fsProvider';
 import { Category, DatabaseRegistry, dbKeyFor, OpenDatabase, SCHEME } from './model';
+import { AccessDbRedirectEditorProvider } from './redirectEditorProvider';
 import { AccessTreeProvider, TreeNode } from './tree';
 import { VbaUnlockManager } from './vbaUnlock';
 import { VbaSymbolProvider } from './vbaSymbols';
@@ -15,6 +17,7 @@ const registry = new DatabaseRegistry();
 let fsProvider: AccessFsProvider;
 let vbaUnlock: VbaUnlockManager;
 let backups: BackupManager;
+let mirror: AiMirrorManager;
 
 export function activate(context: vscode.ExtensionContext): void {
   if (process.platform !== 'win32') {
@@ -26,6 +29,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   backups = new BackupManager();
   fsProvider = new AccessFsProvider(registry, backups);
+  mirror = new AiMirrorManager(fsProvider, registry);
   const tree = new AccessTreeProvider(registry);
   vbaUnlock = new VbaUnlockManager(context.secrets);
 
@@ -46,8 +50,15 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     fsProvider.register(),
+    mirror,
     treeView,
     vscode.languages.registerDocumentSymbolProvider({ scheme: SCHEME }, new VbaSymbolProvider()),
+
+    vscode.window.registerCustomEditorProvider(
+      'accessExplorer.database',
+      new AccessDbRedirectEditorProvider((uri) => openDatabase(uri, scriptPath, workDir)),
+      { supportsMultipleEditorsPerDocument: false },
+    ),
 
     vscode.commands.registerCommand('accessExplorer.openDatabase', (uri?: vscode.Uri) =>
       openDatabase(uri, scriptPath, workDir),
@@ -73,6 +84,15 @@ export function activate(context: vscode.ExtensionContext): void {
       const db = node && 'db' in node ? node.db : undefined;
       if (db) {
         const dir = backups.backupDirFor(db);
+        await fs.mkdir(dir, { recursive: true });
+        void vscode.env.openExternal(vscode.Uri.file(dir));
+      }
+    }),
+
+    vscode.commands.registerCommand('accessExplorer.revealAiMirror', async (node?: TreeNode) => {
+      const db = node && 'db' in node ? node.db : undefined;
+      if (db) {
+        const dir = mirror.mirrorDirFor(db);
         await fs.mkdir(dir, { recursive: true });
         void vscode.env.openExternal(vscode.Uri.file(dir));
       }
@@ -140,6 +160,7 @@ async function openDatabase(
   const timeoutMs = cfg.get<number>('operationTimeoutSeconds', 20) * 1000;
   const bypassStartup = cfg.get<boolean>('bypassStartup', true);
 
+  let openedDb: OpenDatabase | undefined;
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
@@ -170,6 +191,7 @@ async function openDatabase(
           );
         }
         registry.add(db);
+        openedDb = db;
         await vscode.commands.executeCommand('accessExplorer.tree.focus');
         if (vbaProtected) {
           void vbaUnlock.unlock(db);
@@ -179,6 +201,21 @@ async function openDatabase(
       }
     },
   );
+  if (openedDb) {
+    void materializeMirror(openedDb);
+  }
+}
+
+/** Fire-and-forget: exports the whole listing to the on-disk AI mirror, in its own cancellable progress. */
+function materializeMirror(db: OpenDatabase): void {
+  void vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: vscode.l10n.t('Mirroring {0} objects for AI tools…', registry.labelFor(db)),
+      cancellable: true,
+    },
+    (progress, token) => mirror.materialize(db, token, progress),
+  );
 }
 
 async function refresh(key?: string): Promise<void> {
@@ -187,6 +224,7 @@ async function refresh(key?: string): Promise<void> {
     try {
       db.listing = await db.bridge.list();
       fsProvider.invalidate(db.key);
+      void mirror.materialize(db);
     } catch (err) {
       void vscode.window.showErrorMessage(
         vscode.l10n.t('Refresh failed for {0}: {1}', registry.labelFor(db), describeError(err)),
@@ -203,6 +241,7 @@ async function closeDatabase(key: string): Promise<void> {
   }
   registry.remove(key);
   fsProvider.dropDatabase(key);
+  await mirror.close(db);
   await db.bridge.dispose();
 }
 
@@ -225,6 +264,7 @@ function onBridgeCrash(dbPath: string): void {
   if (db) {
     registry.remove(db.key);
     fsProvider.dropDatabase(db.key);
+    void mirror.close(db);
   }
   void vscode.window.showErrorMessage(
     vscode.l10n.t(

@@ -60,6 +60,37 @@ export function decodeName(segment: string): string {
   return segment.replace(/%([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
 }
 
+/**
+ * Extension for a filename within a category, matched against the known suffix rather than
+ * split on the last dot: Tables/Forms/Reports use compound extensions (e.g. ".report.txt") that
+ * contain a dot themselves, so a naive last-dot split would strip only ".txt". Shared by the
+ * accessdb: URI parser and the on-disk AI mirror's reverse path -> object mapping.
+ */
+export function extFor(category: Category, fileName: string): string | undefined {
+  return category === 'Modules'
+    ? MODULE_EXTS.find((e) => fileName.endsWith(e))
+    : (fileName.endsWith(EXT_FOR[category]) ? EXT_FOR[category] : undefined);
+}
+
+// Windows forbids more characters in real filenames than accessdb: URI paths do, has reserved
+// device basenames, and strips trailing dots/spaces — encodeName (URI-only) is not enough here.
+const FS_INVALID_CHARS = /[%<>:"/\\|?*\x00-\x1f]/g;
+const FS_RESERVED_BASENAME = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
+
+/** Escapes an Access object name into a real, safe Windows filename segment (no extension). */
+export function encodeFsName(name: string): string {
+  let s = name.replace(FS_INVALID_CHARS, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'));
+  s = s.replace(/[ .]+$/g, (m) =>
+    [...m].map((ch) => '%' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')).join(''),
+  );
+  return FS_RESERVED_BASENAME.test(s) ? '_' + s : s;
+}
+
+export function decodeFsName(segment: string): string {
+  const unprefixed = segment.startsWith('_') && FS_RESERVED_BASENAME.test(segment.slice(1)) ? segment.slice(1) : segment;
+  return unprefixed.replace(/%([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 export function objectUri(key: string, category: Category, name: string, ext: string): vscode.Uri {
   return vscode.Uri.from({ scheme: SCHEME, path: `/${key}/${category}/${encodeName(name)}${ext}` });
 }
@@ -78,14 +109,7 @@ export function parseUri(uri: vscode.Uri): ParsedUri {
   }
   const category = parts[1] as Category;
   const fileName = parts[2];
-  // Match against the known extension for this category rather than splitting on the
-  // last dot: Tables/Forms/Reports use compound extensions (e.g. ".report.txt") that
-  // contain a dot themselves, so a naive last-dot split strips only ".txt" and leaves
-  // ".report" glued onto the object name passed to Access COM.
-  const ext =
-    category === 'Modules'
-      ? MODULE_EXTS.find((e) => fileName.endsWith(e))
-      : (fileName.endsWith(EXT_FOR[category]) ? EXT_FOR[category] : undefined);
+  const ext = extFor(category, fileName);
   if (!ext) {
     throw vscode.FileSystemError.FileNotFound(uri);
   }

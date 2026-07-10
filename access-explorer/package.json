@@ -25,6 +25,18 @@
     "onFileSystem:accessdb"
   ],
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "accessExplorer.database",
+        "displayName": "%customEditor.database.displayName%",
+        "selector": [
+          {
+            "filenamePattern": "*.accdb"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -79,6 +91,12 @@
         "title": "%cmd.revealBackups%",
         "category": "Access",
         "icon": "$(history)"
+      },
+      {
+        "command": "accessExplorer.revealAiMirror",
+        "title": "%cmd.revealAiMirror%",
+        "category": "Access",
+        "icon": "$(folder)"
       },
       {
         "command": "accessExplorer.unlockVbaProject",
@@ -169,6 +187,11 @@
           "command": "accessExplorer.unlockVbaProject",
           "when": "view == accessExplorer.tree && viewItem == database",
           "group": "9_backups@2"
+        },
+        {
+          "command": "accessExplorer.revealAiMirror",
+          "when": "view == accessExplorer.tree && viewItem == database",
+          "group": "9_backups@3"
         }
       ],
       "commandPalette": [
@@ -182,6 +205,10 @@
         },
         {
           "command": "accessExplorer.revealBackups",
+          "when": "false"
+        },
+        {
+          "command": "accessExplorer.revealAiMirror",
           "when": "false"
         },
         {
@@ -288,6 +315,11 @@
           "type": "boolean",
           "default": true,
           "description": "%cfg.bypassStartup%"
+        },
+        "accessExplorer.aiMirror.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.aiMirror.enabled%"
         }
       }
     }

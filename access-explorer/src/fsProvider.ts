@@ -137,6 +137,15 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
   }
 
   async writeFile(uri: vscode.Uri, content: Uint8Array): Promise<void> {
+    await this.saveObject(uri, Buffer.from(content).toString('utf8'));
+  }
+
+  /**
+   * Full save pipeline for an object's text: conflict check, backup, COM write, compile check,
+   * re-read of the canonical form. Shared by the accessdb: FileSystemProvider.writeFile (Ctrl+S)
+   * and the on-disk AI mirror, so both editing surfaces get identical safety semantics.
+   */
+  async saveObject(uri: vscode.Uri, newText: string): Promise<{ text: string; readonly: boolean }> {
     const { key, category, name } = parseUri(uri);
     const db = this.registry.get(key);
     if (!db) {
@@ -152,7 +161,6 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
       // Forms/Reports with no code-behind module (HasModule=False) have nothing to write.
       throw vscode.FileSystemError.NoPermissions(uri);
     }
-    const newText = Buffer.from(content).toString('utf8');
 
     try {
       await this.checkConflict(db, entry);
@@ -209,6 +217,25 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
     }
     entry.mtime = Date.now();
     this.fileChangeEmitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+    return { text: entry.text, readonly: entry.readonly };
+  }
+
+  /** Resolves an object's uri and current text, reusing the same cache as writeFile/resolveUri. */
+  async readObject(
+    db: OpenDatabase,
+    category: Category,
+    name: string,
+  ): Promise<{ uri: vscode.Uri; text: string; readonly: boolean }> {
+    const uri = await this.resolveUri(db, category, name);
+    const entry = await this.ensureEntry(uri);
+    return { uri, text: entry.text, readonly: entry.readonly };
+  }
+
+  /** Drops the cached entry for one object, forcing a fresh read next time it's touched. */
+  invalidateOne(uri: vscode.Uri): void {
+    if (this.entries.delete(uri.toString())) {
+      this.fileChangeEmitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+    }
   }
 
   readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {

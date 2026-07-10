@@ -4,7 +4,7 @@ Extensie VS Code pentru lucrul cu baze de date **Microsoft Access (.accdb)** pri
 
 ## Funcționalități
 
-- **Deschidere** `.accdb` din comandă (`Access: Open Access Database`) sau click-dreapta pe fișier în Explorer.
+- **Deschidere** `.accdb` din comandă (`Access: Open Access Database`), click-dreapta pe fișier în Explorer, sau direct — dublu-click / drag-and-drop / `code fisier.accdb` deschide automat Access Explorer în loc de fișierul binar brut. Pentru ca dublu-click din **Windows Explorer** (nu din VS Code) să lanseze VS Code, e nevoie o singură dată de o asociere de fișier: click-dreapta pe `.accdb` → *Open with* → *Choose another app* → alege `Code.exe` → bifează opțional *Always use this app* (pas manual Windows, extensia nu îl poate seta programatic).
 - **TreeView** în sidebar cu toate componentele: Tabele, Interogări, Formulare, Rapoarte, Macro-uri, Module VBA (standard + clasă).
 - **Filtrare arbore**: buton *Filter Objects* în titlul view-ului — arată doar obiectele al căror nume conține textul căutat (case-insensitive); *Clear Filter* revine la lista completă.
 - **Navigare cod stil VBA IDE**: panoul *Outline* și `Ctrl+Shift+O` (Go to Symbol) grupează subrutinele fiecărui Modul/Formular/Raport exact ca dropdown-urile din editorul VBA — `(General)` pentru procedurile independente, apoi câte un grup per control (`cmdSave`, `Form`, etc.) cu evenimentele lui; selectarea sare direct la începutul codului.
