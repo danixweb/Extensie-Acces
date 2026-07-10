@@ -78,7 +78,7 @@ function Get-ErrorInfo($err) {
     elseif ($num -in 3045, 3050, 3704, 3734, 3009, 3211, 3260) { $code = 'DB_LOCKED' }
     elseif ($num -in 3051, 3033) { $code = 'NO_PERMISSION' }
     elseif ($num -in 3024, 3044, 3055) { $code = 'DB_NOT_FOUND' }
-    elseif ($num -in 2544, 3265, 7874, 2103, 29068) { $code = 'OBJECT_NOT_FOUND' }
+    elseif ($num -in 2544, 3265, 7874, 2103, 29068, 32584) { $code = 'OBJECT_NOT_FOUND' }
     elseif ($num -in 3129, 3141, 3075, 3067, 3131, 3134, 3144, 3061) { $code = 'SQL_SYNTAX' }
     elseif ($num -in 2501, 29054) { $code = 'MACRO_SECURITY' }
     return @{
