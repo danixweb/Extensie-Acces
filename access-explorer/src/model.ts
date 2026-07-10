@@ -11,6 +11,16 @@ export const CATEGORIES: Category[] = ['Tables', 'Queries', 'Forms', 'Reports', 
 
 export const EDITABLE_CATEGORIES: ReadonlySet<Category> = new Set(['Queries', 'Macros', 'Modules']);
 
+export const EXT_FOR: Record<Exclude<Category, 'Modules'>, string> = {
+  Tables: '.table.txt',
+  Queries: '.sql',
+  Forms: '.form.txt',
+  Reports: '.report.txt',
+  Macros: '.mac',
+};
+
+export const MODULE_EXTS = ['.cls', '.bas'] as const;
+
 export interface OpenDatabase {
   key: string;
   dbPath: string;
@@ -58,13 +68,24 @@ export function parseUri(uri: vscode.Uri): ParsedUri {
   if (parts.length !== 3 || !CATEGORIES.includes(parts[1] as Category)) {
     throw vscode.FileSystemError.FileNotFound(uri);
   }
+  const category = parts[1] as Category;
   const fileName = parts[2];
-  const dot = fileName.lastIndexOf('.');
+  // Match against the known extension for this category rather than splitting on the
+  // last dot: Tables/Forms/Reports use compound extensions (e.g. ".report.txt") that
+  // contain a dot themselves, so a naive last-dot split strips only ".txt" and leaves
+  // ".report" glued onto the object name passed to Access COM.
+  const ext =
+    category === 'Modules'
+      ? MODULE_EXTS.find((e) => fileName.endsWith(e))
+      : (fileName.endsWith(EXT_FOR[category]) ? EXT_FOR[category] : undefined);
+  if (!ext) {
+    throw vscode.FileSystemError.FileNotFound(uri);
+  }
   return {
     key: parts[0],
-    category: parts[1] as Category,
-    name: decodeName(dot > 0 ? fileName.slice(0, dot) : fileName),
-    ext: dot > 0 ? fileName.slice(dot) : '',
+    category,
+    name: decodeName(fileName.slice(0, fileName.length - ext.length)),
+    ext,
   };
 }
 

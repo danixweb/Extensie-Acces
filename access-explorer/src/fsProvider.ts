@@ -5,6 +5,7 @@ import {
   Category,
   DatabaseRegistry,
   EDITABLE_CATEGORIES,
+  EXT_FOR,
   listingFor,
   objectUri,
   OpenDatabase,
@@ -29,14 +30,6 @@ interface Entry {
   /** Encoding of the macro export, reused on write-back. */
   macroEnc?: string;
 }
-
-const EXT_FOR: Record<Exclude<Category, 'Modules'>, string> = {
-  Tables: '.table.txt',
-  Queries: '.sql',
-  Forms: '.form.txt',
-  Reports: '.report.txt',
-  Macros: '.mac',
-};
 
 function normalize(text: string): string {
   return text.replace(/\r\n/g, '\n').replace(/\s+$/, '');
