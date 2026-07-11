@@ -491,6 +491,50 @@ function Op-Backup([hashtable]$args_) {
     return @{ target = $target }
 }
 
+# Compacts and repairs the current database in place: closes it, runs CompactRepair into a temp
+# file next to it, then swaps the temp file over the original and reopens it. CompactRepair needs
+# the source file free of any exclusive/shared hold from THIS automation instance (hence the
+# CloseCurrentDatabase first) and can fail outright if another user/process has it open elsewhere
+# (DB_LOCKED) — any failure here always leaves the original file untouched and reopens it, never
+# destructive.
+function Op-Compact([hashtable]$args_) {
+    Assert-Open
+    $sourcePath = $script:dbPath
+    $dir = Split-Path -Parent $sourcePath
+    $ext = [System.IO.Path]::GetExtension($sourcePath)
+    $tempPath = Join-Path $dir ([System.IO.Path]::GetFileNameWithoutExtension($sourcePath) + '_compact_' + [System.Guid]::NewGuid().ToString('N').Substring(0, 8) + $ext)
+
+    $script:app.CloseCurrentDatabase()
+
+    try {
+        $script:app.CompactRepair($sourcePath, $tempPath, $false)
+    } catch {
+        $info = Get-ErrorInfo $_
+        try { $script:app.OpenCurrentDatabase($sourcePath, $false) } catch { }
+        if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
+        return @{ _error = @{ code = $info.code; number = $info.number; hresult = $info.hresult; message = "Compact failed, database reopened unchanged: $($info.message)" } }
+    }
+
+    # Move-Item -Force is a single rename/replace, not delete-then-copy: if it fails, the
+    # original file at $sourcePath is still intact and the compacted result stays at $tempPath
+    # (reported in the error) rather than being lost.
+    try {
+        Move-Item -LiteralPath $tempPath -Destination $sourcePath -Force
+    } catch {
+        $info = Get-ErrorInfo $_
+        try { $script:app.OpenCurrentDatabase($sourcePath, $false) } catch { }
+        return @{ _error = @{ code = 'COM_ERROR'; number = 0; hresult = 0; message = "Compact succeeded (result left at $tempPath) but replacing the original file failed: $($info.message)" } }
+    }
+
+    $lockExt = if ($ext -ieq '.mdb') { 'ldb' } else { 'laccdb' }
+    $lockPath = [System.IO.Path]::ChangeExtension($sourcePath, $lockExt)
+    if (Test-Path -LiteralPath $lockPath) { Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue }
+
+    $script:app.OpenCurrentDatabase($sourcePath, $false)
+    $script:dbPath = $sourcePath
+    return @{ compacted = $true; listing = (Op-List) }
+}
+
 function Close-App {
     if ($null -ne $script:app) {
         try { $script:app.CloseCurrentDatabase() } catch { }
@@ -545,6 +589,7 @@ try {
                 'unlockVba'    { Op-UnlockVba $opArgs }
                 'compile'      { Op-Compile $opArgs }
                 'backup'       { Op-Backup $opArgs }
+                'compact'      { Op-Compact $opArgs }
                 'relinkCredentials' { Op-RelinkCredentials $opArgs }
                 default        { throw "Unknown op: $op" }
             }

@@ -101,6 +101,17 @@ Pentru fiecare cod plauzibil identificat în ACEASTĂ rutină (nu generic — tr
 
 **Prezintă aceste propuneri explicit utilizatorului** (listă scurtă: cod eroare → linia/operația din rutină care îl poate provoca → tratare propusă) și aplică-le doar pe cele confirmate — deciziile de recuperare la erori specifice schimbă comportamentul programului, spre deosebire de scheletul din Pasul 4, care e pur mecanic și se aplică direct.
 
+**Fiecare `Case <numar>` adăugat trebuie însoțit de un comentariu explicativ**, pe linia lui sau imediat deasupra: ce înseamnă codul de eroare (numele standard VBA/DAO, ex. "Division by zero") și de ce a fost inclus pentru această rutină anume (ce linie/operație din cod îl poate provoca). Exemplu:
+
+```vb
+N   Case 94 ' Invalid use of Null - DLookup de la linia 40 poate intoarce Null daca nu gaseste inregistrarea
+N       ...
+N   Case 11 ' Division by zero - impartirea la Cantitate de la linia 60 poate fi 0
+N       ...
+```
+
+Nu adăuga acest comentariu pe `Case 0` sau `Case Else` din scheletul de bază (Pasul 4) — doar pe `Case`-urile de cod specific propuse aici.
+
 ## Ce NU face acest skill
 
 - Nu copiază convenția `ErrHandler:` (fără `Erl`, fără `ScrieEroare`) găsită în module vizibil terțe/importate (biblioteci externe, controale calendar, etc.) — aceea e o convenție diferită, nu a aplicației.

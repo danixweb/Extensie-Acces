@@ -16,6 +16,7 @@
   "cmd.selectForAi": "Selectează codul pentru AI",
   "cmd.revealAiMirror": "Deschide folderul oglindă AI",
   "cmd.remirror": "Reoglindește complet toate obiectele",
+  "cmd.compactDatabase": "Compactează și repară baza de date",
   "cfg.backupBeforeWrite": "Creează o copie de siguranță a fișierului .accdb înainte de fiecare scriere.",
   "cfg.backupOnOpen": "Creează o copie de siguranță cu timestamp a fișierului .accdb la deschidere, marcând începutul unei sesiuni de lucru (pe lângă backup-urile per-scriere).",
   "cfg.backupCount": "Câte copii de siguranță se păstrează per bază de date (cele mai vechi se șterg).",
@@ -25,5 +26,6 @@
   "cfg.vbaUnlockTimeoutSeconds": "Câte secunde se așteaptă să introduci parola proiectului VBA în dialogul Access înainte de a renunța.",
   "cfg.bypassStartup": "Sare peste formularul Startup și macro-ul AutoExec ale bazei de date la deschidere (tehnica clasică Shift-bypass). Nu are efect dacă proprietatea AllowBypassKey a bazei a fost dezactivată de dezvoltator.",
   "cfg.visibleOperations": "Afișează fereastra Access și tabelul, modulul sau formularul/raportul citit ori scris efectiv, în timp real, în loc să ruleze complet ascuns.",
-  "cfg.aiMirror.enabled": "Oglindește fiecare tabel, interogare, formular, raport, macro și modul ca fișier real pe disc (într-un folder .accdb-ai lângă baza de date), astfel încât uneltele AI precum Claude Code să le poată găsi și edita direct. Modificările fișierelor oglindă sunt salvate automat înapoi în Access, cu opțiune de revenire (Revert)."
+  "cfg.aiMirror.enabled": "Oglindește fiecare tabel, interogare, formular, raport, macro și modul ca fișier real pe disc (într-un folder .accdb-ai lângă baza de date), astfel încât uneltele AI precum Claude Code să le poată găsi și edita direct. Modificările fișierelor oglindă sunt salvate automat înapoi în Access, cu opțiune de revenire (Revert).",
+  "cfg.compactOnClose": "Compactează și repară automat baza de date la închiderea ei din Access Explorer. Este sărită (cu un avertisment) dacă fișierul nu poate fi blocat exclusiv, de exemplu alt utilizator sau proces îl are deschis în altă parte — baza de date se închide totuși normal în acest caz."
 }

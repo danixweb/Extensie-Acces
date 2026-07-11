@@ -82,6 +82,12 @@
         "icon": "$(close)"
       },
       {
+        "command": "accessExplorer.compactDatabase",
+        "title": "%cmd.compactDatabase%",
+        "category": "Access",
+        "icon": "$(archive)"
+      },
+      {
         "command": "accessExplorer.openObject",
         "title": "%cmd.openObject%",
         "category": "Access"
@@ -203,6 +209,11 @@
           "command": "accessExplorer.remirror",
           "when": "view == accessExplorer.tree && viewItem == database",
           "group": "9_backups@4"
+        },
+        {
+          "command": "accessExplorer.compactDatabase",
+          "when": "view == accessExplorer.tree && viewItem == database",
+          "group": "9_backups@5"
         }
       ],
       "commandPalette": [
@@ -336,6 +347,11 @@
           "type": "boolean",
           "default": true,
           "description": "%cfg.aiMirror.enabled%"
+        },
+        "accessExplorer.compactOnClose": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.compactOnClose%"
         }
       }
     }

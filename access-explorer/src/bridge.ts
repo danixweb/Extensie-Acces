@@ -39,6 +39,7 @@ export interface BridgeOptions {
 
 const OPEN_TIMEOUT_MS = 60_000;
 const COMPILE_TIMEOUT_MS = 60_000;
+const COMPACT_TIMEOUT_MS = 120_000;
 const QUIT_GRACE_MS = 5_000;
 /** Margin over the poll timeout the caller requests, so the bridge watchdog never fires first. */
 const UNLOCK_TIMEOUT_MARGIN_MS = 15_000;
@@ -258,6 +259,19 @@ export class AccessBridge {
 
   async backup(targetPath: string): Promise<void> {
     await this.request('backup', { target: targetPath }, OPEN_TIMEOUT_MS);
+  }
+
+  /**
+   * Closes the database, runs Access's CompactRepair into a temp file, swaps it over the
+   * original, then reopens it — all within this same bridge/process. Requires the file free
+   * of any other exclusive/shared hold; throws `DB_LOCKED` (never destructive — the original
+   * is left untouched and reopened) if another user/process has it open elsewhere.
+   */
+  async compact(): Promise<{ compacted: boolean; listing: DbListing }> {
+    return (await this.request('compact', {}, COMPACT_TIMEOUT_MS)) as {
+      compacted: boolean;
+      listing: DbListing;
+    };
   }
 
   /**

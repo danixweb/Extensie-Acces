@@ -16,6 +16,7 @@
   "cmd.selectForAi": "Select Code for AI",
   "cmd.revealAiMirror": "Open AI Mirror Folder",
   "cmd.remirror": "Re-mirror All Objects for AI Tools",
+  "cmd.compactDatabase": "Compact and Repair Database",
   "cfg.backupBeforeWrite": "Create a backup copy of the .accdb file before every write.",
   "cfg.backupOnOpen": "Create a timestamped backup copy of the .accdb file when it is opened, marking the start of a work session (in addition to the per-write backups).",
   "cfg.backupCount": "How many backup copies to keep per database (oldest are deleted).",
@@ -25,5 +26,6 @@
   "cfg.vbaUnlockTimeoutSeconds": "How many seconds to wait for you to enter the VBA project password in the Access dialog before giving up.",
   "cfg.bypassStartup": "Skip the database's Startup form and AutoExec macro when opening it (the classic Shift-bypass technique). Has no effect if the database's AllowBypassKey property was disabled by its developer.",
   "cfg.visibleOperations": "Show the Access window and the actual table, module or form/report being read or written, in real time, instead of running fully hidden.",
-  "cfg.aiMirror.enabled": "Mirror every table, query, form, report, macro and module as a real file on disk (in a .accdb-ai folder next to the database) so AI coding tools such as Claude Code can find and edit them directly. Edits to mirrored files are saved back into Access automatically, with a Revert option."
+  "cfg.aiMirror.enabled": "Mirror every table, query, form, report, macro and module as a real file on disk (in a .accdb-ai folder next to the database) so AI coding tools such as Claude Code can find and edit them directly. Edits to mirrored files are saved back into Access automatically, with a Revert option.",
+  "cfg.compactOnClose": "Compact and repair the database automatically when closing it from Access Explorer. Skipped (with a warning) if the file can't be locked exclusively, e.g. another user or process has it open elsewhere — the database is still closed normally in that case."
 }

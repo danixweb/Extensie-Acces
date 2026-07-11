@@ -20,6 +20,7 @@ Extensie VS Code pentru lucrul cu baze de date **Microsoft Access (.accdb)** pri
 - **Ctrl+S** salvează direct în `.accdb`; după salvarea unui modul sau a codului unui Formular/Raport rulează o **verificare de compilare VBA** și avertizează dacă proiectul nu compilează.
 - **Backup automat** înainte de fiecare scriere în `<folder DB>\.accdb-backups\<nume>.<timestamp>.accdb`, cu retenție configurabilă. Dacă backup-ul eșuează, scrierea este anulată.
 - **Backup la deschidere**: pe lângă backup-ul per-scriere, se creează automat un backup (același format cu timestamp) chiar la deschiderea bazei de date — un marcaj de "început de sesiune de lucru", util ca punct de revenire independent de ce salvezi ulterior. Dezactivabil din `accessExplorer.backupOnOpen`; dacă eșuează, apare doar un avertisment — baza rămâne deschisă.
+- **Compactare/reparare** (`Access: Compact and Repair Database`, din paletă sau click-dreapta pe bază în arbore): rulează `CompactRepair` peste fișierul `.accdb` curent, apoi îl redeschide. Se face automat și la închiderea bazei din extensie (dezactivabil din `accessExplorer.compactOnClose`) — dacă eșuează (ex. fișierul e deschis în altă parte și nu poate fi blocat exclusiv), apare doar un avertisment și baza se închide normal, neschimbată.
 - **Detectare conflicte**: dacă obiectul a fost modificat în Access după deschidere, salvarea e refuzată până rulezi Refresh.
 - **Refresh** recitește structura bazei de date și reîncarcă editoarele deschise.
 - **UI bilingv**: engleză implicit, română cu `code --locale=ro` (sau Display Language: Română).
@@ -79,6 +80,7 @@ code --install-extension .\access-explorer-0.1.0.vsix
 9. *Filter Objects* → scrie un fragment de nume → arborele arată doar potrivirile (și categoriile cu 0 rezultate dispar); *Clear Filter* → revine complet.
 10. Deschide un Formular/Raport cu cod → `Ctrl+Shift+O` → confirmă gruparea `(General)` + `Form`/`Report` + fiecare control, cu subrutinele lor; selectarea unui control fără alt sub-selectat sare la prima lui subrutină.
 11. Pe o **copie** a bazei: editează codul unui Formular/Raport (comentariu inofensiv), Ctrl+S, verifică în Access (deschis normal) că obiectul se deschide și arată identic, iar modificarea e prezentă.
+12. *Compact and Repair Database* din paletă → fișierul scade în dimensiune, baza rămâne deschisă și utilizabilă, arborele se reîmprospătează. Apoi deschide DB-ul exclusiv din altă instanță Access (`msaccess /excl`) și repetă comanda → apare un avertisment de eșec, baza rămâne deschisă neschimbată în extensie. Închide baza normal (cu `accessExplorer.compactOnClose` activ) → compactarea rulează automat înainte de închidere.
 
 ## Limitări și riscuri
 
@@ -99,6 +101,7 @@ code --install-extension .\access-explorer-0.1.0.vsix
   a o introduce programatic). Parola poate fi reținută în VS Code Secret Storage per bază de date.
 - **OneDrive/Dropbox**: fișierele `.accdb` sincronizate în cloud (cum e cazul acestui workspace, aflat pe OneDrive) riscă conflicte de sincronizare și blocaje pe `.laccdb`. Recomandat: pune baza de date pe un folder local nesincronizat sau pune sincronizarea pe pauză cât lucrezi.
 - Deși există backup automat, pentru operații ample fă și un **backup manual** înainte (comanda *Open Backups Folder* îți arată copiile existente).
+- **Compactarea** necesită acces exclusiv la fișier: dacă baza e deschisă și de altcineva (ex. aplicație multi-user pe rețea), operația eșuează sigur (fișierul original rămâne neatins) — nu forța compactarea pe o bază folosită concurent de alți utilizatori.
 
 ## Setări
 
@@ -112,3 +115,4 @@ code --install-extension .\access-explorer-0.1.0.vsix
 | `accessExplorer.operationTimeoutSeconds` | `20` | Timeout pentru operațiile COM |
 | `accessExplorer.vbaUnlockTimeoutSeconds` | `120` | Cât timp se așteaptă introducerea parolei la deblocarea unui proiect VBA protejat |
 | `accessExplorer.bypassStartup` | `true` | Sare peste formularul Startup / AutoExec la deschidere (Shift-bypass) |
+| `accessExplorer.compactOnClose` | `true` | Compactează/repară automat baza la închiderea din extensie |

@@ -87,6 +87,13 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
+    vscode.commands.registerCommand('accessExplorer.compactDatabase', async (node?: TreeNode) => {
+      const db = node && 'db' in node ? node.db : await pickOpenDatabase();
+      if (db) {
+        await compactDatabase(db, true);
+      }
+    }),
+
     vscode.commands.registerCommand(
       'accessExplorer.openObject',
       (key: string, category: Category, name: string) => openObject(key, category, name),
@@ -338,10 +345,61 @@ async function closeDatabase(key: string): Promise<void> {
   if (!db) {
     return;
   }
+  const cfg = vscode.workspace.getConfiguration('accessExplorer');
+  if (cfg.get<boolean>('compactOnClose', true)) {
+    // Best-effort: a failure here (e.g. another user/process has the file open elsewhere,
+    // so CompactRepair can't get the access it needs) never blocks closing.
+    await compactDatabase(db, false);
+  }
   registry.remove(key);
   fsProvider.dropDatabase(key);
   await mirror.close(db);
   await db.bridge.dispose();
+}
+
+async function pickOpenDatabase(): Promise<OpenDatabase | undefined> {
+  if (registry.all.length === 0) {
+    void vscode.window.showInformationMessage(vscode.l10n.t('No database is currently open in Access Explorer.'));
+    return undefined;
+  }
+  if (registry.all.length === 1) {
+    return registry.all[0];
+  }
+  const picked = await vscode.window.showQuickPick(
+    registry.all.map((db) => ({ label: registry.labelFor(db), db })),
+    { placeHolder: vscode.l10n.t('Select the database to compact') },
+  );
+  return picked?.db;
+}
+
+/** Closes the database, runs CompactRepair, and reopens it — all within the same bridge/process.
+ *  Never throws: a failure (e.g. locked by another user) surfaces as a warning and leaves the
+ *  database open and untouched. */
+async function compactDatabase(db: OpenDatabase, notifyOnSuccess: boolean): Promise<boolean> {
+  let ok = false;
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: vscode.l10n.t('Compacting {0}…', registry.labelFor(db)),
+    },
+    async () => {
+      try {
+        const { listing } = await db.bridge.compact();
+        db.listing = listing;
+        fsProvider.invalidate(db.key);
+        registry.notifyChanged();
+        ok = true;
+        if (notifyOnSuccess) {
+          void vscode.window.showInformationMessage(vscode.l10n.t('Compacted {0}.', registry.labelFor(db)));
+        }
+      } catch (err) {
+        void vscode.window.showWarningMessage(
+          vscode.l10n.t('Compact failed for {0}: {1}', registry.labelFor(db), describeError(err)),
+        );
+      }
+    },
+  );
+  return ok;
 }
 
 async function openObject(key: string, category: Category, name: string): Promise<void> {
