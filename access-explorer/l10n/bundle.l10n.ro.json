@@ -40,5 +40,16 @@
   "Revert": "Revino",
   "Access Explorer does not delete database objects through the AI mirror; \"{0}\" has been restored.": "Access Explorer nu șterge obiecte din baza de date prin oglinda AI; „{0}” a fost restaurat.",
   "Reverted {0} ({1}).": "S-a revenit la varianta anterioară: {0} ({1}).",
-  "Opening in Access Explorer…": "Se deschide în Access Explorer…"
+  "Opening in Access Explorer…": "Se deschide în Access Explorer…",
+  "PID {0}": "PID {0}",
+  "Found {0} orphaned Access process(es) (no window, likely left over from a crashed session). Select any to close, or press Escape to leave them.": "S-au găsit {0} proces(e) Access orfan(e) (fără fereastră, probabil rămase dintr-o sesiune blocată/oprită brusc). Selectează-le pe cele de închis sau apasă Escape ca să le lași.",
+  "Closed {0} orphaned Access process(es).": "S-au închis {0} proces(e) Access orfan(e).",
+  "Closed {0} orphaned Access process(es); {1} failed to close.": "S-au închis {0} proces(e) Access orfan(e); {1} nu au putut fi închise.",
+  "The username/password were rejected for the linked data source. Details: {0}": "Utilizatorul/parola au fost respinse de sursa de date legată. Detalii: {0}",
+  "The saved data source credentials for {0} no longer work: {1}. Enter them again.": "Credențialele salvate pentru sursa de date a {0} nu mai funcționează: {1}. Introdu-le din nou.",
+  "Data source username — {0}": "Utilizator sursă de date — {0}",
+  "This database has linked tables that need a username and password to connect. They are remembered securely for next time.": "Această bază de date are tabele legate care au nevoie de utilizator și parolă pentru conectare. Sunt reținute securizat pentru data viitoare.",
+  "Data source password — {0}": "Parolă sursă de date — {0}",
+  "Linked tables connected for {0}.": "Tabelele legate din {0} sunt conectate.",
+  "Could not connect the linked tables in {0}: {1}": "Tabelele legate din {0} nu au putut fi conectate: {1}"
 }

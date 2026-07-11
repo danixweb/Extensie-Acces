@@ -12,6 +12,8 @@ export interface DbListing {
   reports: string[];
   macros: string[];
   modules: string[];
+  /** True when at least one TableDef is ODBC-linked (e.g. to SQL Server) and may need credentials. */
+  hasLinkedTables: boolean;
 }
 
 interface PendingRequest {
@@ -29,6 +31,8 @@ export interface BridgeOptions {
   defaultTimeoutMs: number;
   /** Skip the database's Startup form/AutoExec macro (classic Shift-bypass technique). */
   bypassStartup: boolean;
+  /** Show Access, and the specific object being read/written, on screen in real time. */
+  visibleOperations: boolean;
   /** Called when the bridge process dies unexpectedly. */
   onCrash?: (db: AccessBridge) => void;
 }
@@ -63,7 +67,7 @@ export class AccessBridge {
     try {
       const data = (await bridge.request(
         'open',
-        { path: dbPath, bypassStartup: opts.bypassStartup },
+        { path: dbPath, bypassStartup: opts.bypassStartup, visibleOperations: opts.visibleOperations },
         OPEN_TIMEOUT_MS,
       )) as {
         accessPid: number;
@@ -79,6 +83,11 @@ export class AccessBridge {
 
   get isAlive(): boolean {
     return !!this.child && this.child.exitCode === null && !this.disposed;
+  }
+
+  /** PID of the underlying MSACCESS.EXE this bridge is driving (0 before/if never resolved). */
+  get accessProcessId(): number {
+    return this.accessPid;
   }
 
   private async start(): Promise<void> {
@@ -249,6 +258,16 @@ export class AccessBridge {
 
   async backup(targetPath: string): Promise<void> {
     await this.request('backup', { target: targetPath }, OPEN_TIMEOUT_MS);
+  }
+
+  /**
+   * Applies the given username/password to every ODBC-linked TableDef and refreshes the link, so
+   * opening a linked table's data authenticates silently instead of popping the native modal
+   * login dialog (invisible to COM automation, which would hang the bridge). Throws
+   * `LINKED_AUTH_FAILED` if no linked table could be relinked with these credentials.
+   */
+  async relinkCredentials(uid: string, pwd: string): Promise<{ relinked: number; failed: string[] }> {
+    return (await this.request('relinkCredentials', { uid, pwd })) as { relinked: number; failed: string[] };
   }
 
   /**

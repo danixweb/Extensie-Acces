@@ -22,6 +22,9 @@ Set-StrictMode -Version 2.0
 $acTable = 0; $acQuery = 1; $acForm = 2; $acReport = 3; $acMacro = 4; $acModule = 5
 $acQuitSaveNone = 2
 $acCmdCompileAndSaveAllModules = 126
+$acDesignView = 1
+
+. (Join-Path $PSScriptRoot 'visibility-settings.ps1')
 
 Add-Type -Name Win32 -Namespace Bridge -MemberDefinition @'
 [DllImport("user32.dll")]
@@ -39,6 +42,7 @@ $script:app = $null
 $script:accessPid = 0
 $script:accessHwnd = [System.IntPtr]::Zero
 $script:dbPath = $null
+$script:visibleOperations = $false
 
 function Write-Response([hashtable]$obj) {
     $json = ($obj | ConvertTo-Json -Compress -Depth 8)
@@ -103,8 +107,19 @@ function Op-Open([hashtable]$args_) {
         return @{ _error = @{ code = 'DB_NOT_FOUND'; number = 0; hresult = 0; message = "File not found: $path" } }
     }
     $script:app = New-Object -ComObject Access.Application
-    $script:app.Visible = $false
-    try { $script:app.UserControl = $false } catch { }
+    # Explicit arg (from the extension's own setting) wins; otherwise fall back to the
+    # local settings file, so direct/manual protocol use (e.g. a skill driving the bridge
+    # by hand) still honors the same shared "visible operations" preference.
+    $script:visibleOperations = if ($args_.ContainsKey('visibleOperations')) {
+        [bool]$args_.visibleOperations
+    } else {
+        Get-VisibleOperationsSetting (Join-Path $PSScriptRoot 'settings.local.json')
+    }
+    $script:app.Visible = $script:visibleOperations
+    # UserControl defaults to False (automation-owned): explicitly True when visible, so
+    # Access survives even if the bridge process dies unexpectedly instead of auto-quitting
+    # (normal shutdown still goes through Close-App's explicit Quit() either way).
+    try { $script:app.UserControl = $script:visibleOperations } catch { }
     # Resolve the real MSACCESS.EXE PID (and main window handle, reused later to bring the
     # window to the front for VBA project unlock) so the extension can kill it if the bridge hangs.
     # hWndAccessApp surfaces as a method through PowerShell COM late binding.
@@ -149,8 +164,10 @@ function Op-List {
     Assert-Open
     $db = Get-Db
     $tables = @()
+    $hasLinkedTables = $false
     $db.TableDefs.Refresh()
     foreach ($t in $db.TableDefs) {
+        if ($t.Connect -and $t.Connect -like 'ODBC;*') { $hasLinkedTables = $true }
         $n = $t.Name
         if ($n -like 'MSys*' -or $n -like '~*' -or $n -like 'f_*ADO*') { continue }
         $tables += $n
@@ -172,7 +189,52 @@ function Op-List {
         reports = @($reports | Sort-Object)
         macros  = @($macros  | Sort-Object)
         modules = @($modules | Sort-Object)
+        hasLinkedTables = $hasLinkedTables
     }
+}
+
+# Rebuilds an ODBC linked-table Connect string with UID/PWD, stripping any existing UID/PWD
+# parts first so re-relinking (e.g. after the extension prompts for new credentials) is safe
+# to repeat. Note this persists into the .accdb's own TableDef metadata — the standard Access
+# "saved link" mechanism — not just into this bridge session.
+function Add-LinkCredentials([string]$connect, [string]$uid, [string]$pwd) {
+    $parts = $connect -split ';' | Where-Object { $_ -and $_ -notmatch '^\s*(UID|PWD)\s*=' }
+    $parts += "UID=$uid"
+    $parts += "PWD=$pwd"
+    return ($parts -join ';') + ';'
+}
+
+# Applies the given credentials to every ODBC-linked TableDef and calls RefreshLink, so opening
+# a linked table's data authenticates silently instead of popping the native modal login dialog
+# (invisible to COM automation, which would hang the bridge).
+function Op-RelinkCredentials([hashtable]$args_) {
+    Assert-Open
+    $uid = [string]$args_.uid
+    $pwd = [string]$args_.pwd
+    $db = Get-Db
+    $db.TableDefs.Refresh()
+    $relinked = 0
+    $failedNames = @()
+    foreach ($t in $db.TableDefs) {
+        if ($t.Connect -and $t.Connect -like 'ODBC;*') {
+            $t.Connect = Add-LinkCredentials $t.Connect $uid $pwd
+            try {
+                $t.RefreshLink()
+                $relinked++
+            } catch {
+                $failedNames += $t.Name
+            }
+        }
+    }
+    if ($relinked -eq 0 -and $failedNames.Count -gt 0) {
+        return @{ _error = @{
+            code    = 'LINKED_AUTH_FAILED'
+            number  = 0
+            hresult = 0
+            message = "Failed to authenticate linked table(s) with the given credentials: $($failedNames -join ', ')"
+        } }
+    }
+    return @{ relinked = $relinked; failed = @($failedNames) }
 }
 
 # Export an object with SaveAsText into args.file (re-encoded UTF-8 for the extension).
@@ -207,9 +269,28 @@ function Get-VbComponent([string]$name) {
     return $script:app.VBE.ActiveVBProject.VBComponents.Item($name)
 }
 
+# Best-effort, non-fatal: brings the actual code/object being read or written on screen
+# when visibleOperations is on, so the user watches the action happen in real time.
+function Show-CodePane([string]$name) {
+    if (-not $script:visibleOperations) { return }
+    try {
+        $script:app.VBE.MainWindow.Visible = $true
+        (Get-VbComponent $name).CodeModule.CodePane.Show()
+    } catch { }
+}
+
+function Show-DesignObject([string]$kind, [string]$name) {
+    if (-not $script:visibleOperations) { return }
+    try {
+        if ($kind -eq 'form') { $script:app.DoCmd.OpenForm($name, $acDesignView) }
+        else { $script:app.DoCmd.OpenReport($name, $acDesignView) }
+    } catch { }
+}
+
 function Op-GetModule([hashtable]$args_) {
     Assert-Open
     $name = [string]$args_.name
+    Show-CodePane $name
     $r = Export-ObjectText $acModule $name $args_.file
     if ($r.text.Length -gt 0) {
         # Newer Access versions include the VERSION/Attribute header; detect class-ness
@@ -244,6 +325,7 @@ function Op-SaveModule([hashtable]$args_) {
     if ($args_.ContainsKey('viaVbe') -and $args_.viaVbe) { $viaVbe = $true }
     if (-not $viaVbe) {
         Import-ObjectText $acModule $name $args_.file 'ansi'
+        Show-CodePane $name
         return @{ saved = $true }
     }
     # Modules read through the VBE must be written back through it too —
@@ -252,6 +334,7 @@ function Op-SaveModule([hashtable]$args_) {
     $cm = (Get-VbComponent $name).CodeModule
     if ($cm.CountOfLines -gt 0) { $cm.DeleteLines(1, $cm.CountOfLines) }
     if ($text.Length -gt 0) { $cm.AddFromString($text) }
+    Show-CodePane $name
     return @{ saved = $true }
 }
 
@@ -318,13 +401,14 @@ function Op-GetTableDef([hashtable]$args_) {
     return @{ }
 }
 
-function Op-GetFormDef([hashtable]$args_)   { Assert-Open; $r = Export-ObjectText $acForm   $args_.name $args_.file; return @{ enc = $r.enc } }
-function Op-GetReportDef([hashtable]$args_) { Assert-Open; $r = Export-ObjectText $acReport $args_.name $args_.file; return @{ enc = $r.enc } }
+function Op-GetFormDef([hashtable]$args_)   { Assert-Open; Show-DesignObject 'form' $args_.name; $r = Export-ObjectText $acForm   $args_.name $args_.file; return @{ enc = $r.enc } }
+function Op-GetReportDef([hashtable]$args_) { Assert-Open; Show-DesignObject 'report' $args_.name; $r = Export-ObjectText $acReport $args_.name $args_.file; return @{ enc = $r.enc } }
 
 function Op-SaveFormDef([hashtable]$args_) {
     Assert-Open
     $enc = if ($args_.ContainsKey('enc') -and $args_.enc) { [string]$args_.enc } else { 'ansi' }
     Import-ObjectText $acForm $args_.name $args_.file $enc
+    Show-DesignObject 'form' $args_.name
     return @{ saved = $true }
 }
 
@@ -332,6 +416,7 @@ function Op-SaveReportDef([hashtable]$args_) {
     Assert-Open
     $enc = if ($args_.ContainsKey('enc') -and $args_.enc) { [string]$args_.enc } else { 'ansi' }
     Import-ObjectText $acReport $args_.name $args_.file $enc
+    Show-DesignObject 'report' $args_.name
     return @{ saved = $true }
 }
 
@@ -362,7 +447,9 @@ function Op-UnlockVba([hashtable]$args_) {
         }
         return @{ unlocked = $false }
     } finally {
-        try { $script:app.Visible = $false } catch { }
+        # Restore to the session's persistent visibility preference, not unconditionally
+        # hidden — otherwise this would clobber an active "visible operations" setting.
+        try { $script:app.Visible = $script:visibleOperations } catch { }
     }
 }
 
@@ -458,6 +545,7 @@ try {
                 'unlockVba'    { Op-UnlockVba $opArgs }
                 'compile'      { Op-Compile $opArgs }
                 'backup'       { Op-Backup $opArgs }
+                'relinkCredentials' { Op-RelinkCredentials $opArgs }
                 default        { throw "Unknown op: $op" }
             }
 

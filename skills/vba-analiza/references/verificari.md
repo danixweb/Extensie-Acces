@@ -1,4 +1,4 @@
-# Checklist-uri per operație — `/vba`
+# Checklist-uri per operație — `/vba-analiza`
 
 Tipare concrete VBA/Access de căutat, per operație. Referință încărcată doar la nevoie de `SKILL.md`.
 
@@ -26,7 +26,7 @@ Tipare concrete VBA/Access de căutat, per operație. Referință încărcată d
 
 - `Recordset`/`Database`/`QueryDef` deschis (`.OpenRecordset`, `CurrentDb.OpenRecordset`, etc.) fără `.Close` corespunzător, inclusiv pe ramura de eroare a rutinei.
 - Obiect `Set` fără eliberare (`Set obj = Nothing`) la finalul rutinei sau în handler-ul de eroare, când obiectul nu mai e necesar după ce rutina se termină.
-- Referințe la `Forms!<Nume>`/`Reports!<Nume>` fără o verificare prealabilă că formularul/raportul respectiv e deschis (risc de eroare 2450/2465, vezi și `tratare-erori`).
+- Referințe la `Forms!<Nume>`/`Reports!<Nume>` fără o verificare prealabilă că formularul/raportul respectiv e deschis (risc de eroare 2450/2465, vezi și `vba-include-tratare-erori`).
 
 ## securitate
 
@@ -60,7 +60,7 @@ Nu inventa detalii despre parametri/retur care nu reies din cod — dacă rolul 
 
 ## erori
 
-Detectarea tratării existente: caută eticheta `TRATARE_ERORI:` și `On Error GoTo TRATARE_ERORI` (convenția din `tratare-erori`), sau orice alt `On Error GoTo <eticheta>` din rutină.
+Detectarea tratării existente: caută eticheta `TRATARE_ERORI:` și `On Error GoTo TRATARE_ERORI` (convenția din `vba-include-tratare-erori`), sau orice alt `On Error GoTo <eticheta>` din rutină.
 
-- Dacă rutina **nu are** nicio formă de `On Error` → raportează lipsa și recomandă explicit: "rulează skill-ul `tratare-erori` pe această rutină" — nu construi tu blocul de tratare aici.
-- Dacă rutina **are deja** tratare de erori → poți verifica dacă e completă (există `Case Else`, se apelează `ScrieEroare` cu semnătura corectă folosită în restul proiectului, există `Exit Sub`/`Exit Function` înainte de eticheta handler-ului) și raportează eventuale lipsuri, tot ca recomandare către `tratare-erori` pentru completare — nu aplica tu modificări pe blocul de tratare a erorilor.
+- Dacă rutina **nu are** nicio formă de `On Error` → raportează lipsa și recomandă explicit: "rulează skill-ul `vba-include-tratare-erori` pe această rutină" — nu construi tu blocul de tratare aici.
+- Dacă rutina **are deja** tratare de erori → poți verifica dacă e completă (există `Case Else`, se apelează `ScrieEroare` cu semnătura corectă folosită în restul proiectului, există `Exit Sub`/`Exit Function` înainte de eticheta handler-ului) și raportează eventuale lipsuri, tot ca recomandare către `vba-include-tratare-erori` pentru completare — nu aplica tu modificări pe blocul de tratare a erorilor.

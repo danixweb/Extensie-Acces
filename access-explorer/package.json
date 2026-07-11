@@ -327,6 +327,11 @@
           "default": true,
           "description": "%cfg.bypassStartup%"
         },
+        "accessExplorer.visibleOperations": {
+          "type": "boolean",
+          "default": false,
+          "description": "%cfg.visibleOperations%"
+        },
         "accessExplorer.aiMirror.enabled": {
           "type": "boolean",
           "default": true,

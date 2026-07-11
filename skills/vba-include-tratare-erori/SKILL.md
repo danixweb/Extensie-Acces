@@ -1,5 +1,5 @@
 ---
-name: tratare-erori
+name: vba-include-tratare-erori
 description: Adauga tratamentul standard de erori (stil VBA/Access, TRATARE_ERORI + ScrieEroare) intr-o subrutina Sub/Function, cand utilizatorul cere explicit "adauga tratare erori", "pune tratare de erori" sau echivalent pe o rutina VBA dintr-un proiect Access exportat ca text (.bas/.form.txt/.report.txt).
 ---
 

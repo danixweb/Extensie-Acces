@@ -6,3 +6,16 @@ tsconfig.json
 **/*.map
 .gitignore
 *.vsix
+
+# Standalone dev/test scripts and local config — not used by the shipped extension
+# (only access-bridge.ps1, visibility-settings.ps1 and find-orphaned-access.ps1 are).
+# The .local.json files can hold a real SQL Server password — never ship them.
+ps/db-credentials.local.json
+ps/db-credentials.local.json.example
+ps/settings.local.json
+ps/settings.local.json.example
+ps/test-db-query.ps1
+ps/get-untreated-errors.ps1
+ps/mark-error-treated.ps1
+ps/add-test-error.ps1
+ps/db-link-helper.ps1

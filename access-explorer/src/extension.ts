@@ -1,3 +1,4 @@
+import * as cp from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
@@ -7,6 +8,7 @@ import { BackupManager } from './backup';
 import { AccessBridge } from './bridge';
 import { describeError } from './errors';
 import { AccessFsProvider } from './fsProvider';
+import { LinkedCredentialsManager } from './linkedCredentials';
 import { Category, DatabaseRegistry, dbKeyFor, OpenDatabase, SCHEME } from './model';
 import { AccessDbRedirectEditorProvider } from './redirectEditorProvider';
 import { AccessTreeProvider, TreeNode } from './tree';
@@ -16,6 +18,7 @@ import { VbaSymbolProvider } from './vbaSymbols';
 const registry = new DatabaseRegistry();
 let fsProvider: AccessFsProvider;
 let vbaUnlock: VbaUnlockManager;
+let linkedCredentials: LinkedCredentialsManager;
 let backups: BackupManager;
 let mirror: AiMirrorManager;
 
@@ -32,8 +35,10 @@ export function activate(context: vscode.ExtensionContext): void {
   mirror = new AiMirrorManager(fsProvider, registry);
   const tree = new AccessTreeProvider(registry);
   vbaUnlock = new VbaUnlockManager(context.secrets);
+  linkedCredentials = new LinkedCredentialsManager(context.secrets);
 
   const scriptPath = context.asAbsolutePath(path.join('ps', 'access-bridge.ps1'));
+  const findOrphansScriptPath = context.asAbsolutePath(path.join('ps', 'find-orphaned-access.ps1'));
   const workDir = path.join(context.globalStorageUri.fsPath, 'work');
 
   const treeView = vscode.window.createTreeView('accessExplorer.tree', {
@@ -56,12 +61,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.window.registerCustomEditorProvider(
       'accessExplorer.database',
-      new AccessDbRedirectEditorProvider((uri) => openDatabase(uri, scriptPath, workDir)),
+      new AccessDbRedirectEditorProvider((uri) => openDatabase(uri, scriptPath, workDir, findOrphansScriptPath)),
       { supportsMultipleEditorsPerDocument: false },
     ),
 
     vscode.commands.registerCommand('accessExplorer.openDatabase', (uri?: vscode.Uri) =>
-      openDatabase(uri, scriptPath, workDir),
+      openDatabase(uri, scriptPath, workDir, findOrphansScriptPath),
     ),
 
     vscode.commands.registerCommand('accessExplorer.refresh', (node?: TreeNode) =>
@@ -143,6 +148,7 @@ async function openDatabase(
   uri: vscode.Uri | undefined,
   scriptPath: string,
   workDir: string,
+  findOrphansScriptPath: string,
 ): Promise<void> {
   let dbPath = uri?.fsPath;
   if (!dbPath) {
@@ -163,9 +169,12 @@ async function openDatabase(
     return;
   }
 
+  await checkOrphanedAccessProcesses(findOrphansScriptPath);
+
   const cfg = vscode.workspace.getConfiguration('accessExplorer');
   const timeoutMs = cfg.get<number>('operationTimeoutSeconds', 20) * 1000;
   const bypassStartup = cfg.get<boolean>('bypassStartup', true);
+  const visibleOperations = cfg.get<boolean>('visibleOperations', false);
 
   let openedDb: OpenDatabase | undefined;
   await vscode.window.withProgress(
@@ -180,6 +189,7 @@ async function openDatabase(
           workDir,
           defaultTimeoutMs: timeoutMs,
           bypassStartup,
+          visibleOperations,
           onCrash: (crashed) => onBridgeCrash(crashed.dbPath),
         });
         const listing = await bridge.list();
@@ -209,7 +219,76 @@ async function openDatabase(
     },
   );
   if (openedDb) {
+    await linkedCredentials.ensureConnected(openedDb);
     void syncMirror(openedDb);
+  }
+}
+
+interface OrphanCandidate {
+  pid: number;
+  commandLine: string;
+  startTime: string | null;
+}
+
+function execFile(file: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    cp.execFile(file, args, { windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(stdout)));
+  });
+}
+
+/**
+ * Best-effort check for MSACCESS.EXE processes left over from a crashed/killed automation session
+ * (this extension's own bridge, or a standalone dev script) — never blocks opening a database over
+ * this. Databases this extension currently has open legitimately are excluded by PID, so only truly
+ * unaccounted-for processes are ever offered for closing, and only at the user's explicit choice.
+ */
+async function checkOrphanedAccessProcesses(findOrphansScriptPath: string): Promise<void> {
+  let candidates: OrphanCandidate[];
+  try {
+    const stdout = await execFile('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', findOrphansScriptPath,
+    ]);
+    candidates = JSON.parse(stdout) as OrphanCandidate[];
+  } catch {
+    return;
+  }
+  const excludePids = new Set(registry.all.map((db) => db.bridge.accessProcessId).filter((pid) => pid > 0));
+  const toReview = candidates.filter((c) => !excludePids.has(c.pid));
+  if (toReview.length === 0) {
+    return;
+  }
+
+  const items = toReview.map((c) => ({
+    label: vscode.l10n.t('PID {0}', c.pid),
+    description: c.startTime ?? undefined,
+    detail: c.commandLine,
+    pid: c.pid,
+  }));
+  const picked = await vscode.window.showQuickPick(items, {
+    canPickMany: true,
+    placeHolder: vscode.l10n.t(
+      'Found {0} orphaned Access process(es) (no window, likely left over from a crashed session). Select any to close, or press Escape to leave them.',
+      toReview.length,
+    ),
+  });
+  if (!picked || picked.length === 0) {
+    return;
+  }
+
+  const results = await Promise.allSettled(
+    picked.map((item) => execFile('taskkill.exe', ['/PID', String(item.pid), '/T', '/F'])),
+  );
+  const closed = results.filter((r) => r.status === 'fulfilled').length;
+  const failed = results.length - closed;
+  if (failed === 0) {
+    void vscode.window.showInformationMessage(vscode.l10n.t('Closed {0} orphaned Access process(es).', closed));
+  } else {
+    void vscode.window.showWarningMessage(
+      vscode.l10n.t('Closed {0} orphaned Access process(es); {1} failed to close.', closed, failed),
+    );
   }
 }
 

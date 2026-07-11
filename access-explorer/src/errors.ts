@@ -10,6 +10,7 @@ export type BridgeErrorCode =
   | 'VBA_COMPILE_ERROR'
   | 'MACRO_SECURITY'
   | 'VBE_TRUST_REQUIRED'
+  | 'LINKED_AUTH_FAILED'
   | 'BRIDGE_TIMEOUT'
   | 'BRIDGE_CRASHED'
   | 'CONFLICT'
@@ -57,6 +58,11 @@ export function describeError(err: unknown, opts?: { vbaLocked?: boolean }): str
       }
       return vscode.l10n.t(
         'This Access version needs the VBA project object model to read class modules. In Access enable: File > Options > Trust Center > Trust Center Settings > Macro Settings > "Trust access to the VBA project object model", then Refresh.',
+      );
+    case 'LINKED_AUTH_FAILED':
+      return vscode.l10n.t(
+        'The username/password were rejected for the linked data source. Details: {0}',
+        detail,
       );
     case 'MACRO_SECURITY':
       return vscode.l10n.t(
