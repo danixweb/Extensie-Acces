@@ -9,6 +9,7 @@ import { AccessBridge } from './bridge';
 import { describeError } from './errors';
 import { AccessFsProvider } from './fsProvider';
 import { LinkedCredentialsManager } from './linkedCredentials';
+import { initLogger, log } from './logger';
 import { Category, DatabaseRegistry, dbKeyFor, OpenDatabase, SCHEME } from './model';
 import { AccessDbRedirectEditorProvider } from './redirectEditorProvider';
 import { AccessTreeProvider, TreeNode } from './tree';
@@ -30,6 +31,7 @@ export function activate(context: vscode.ExtensionContext): void {
     return;
   }
 
+  initLogger(context);
   backups = new BackupManager();
   fsProvider = new AccessFsProvider(registry, backups);
   mirror = new AiMirrorManager(fsProvider, registry);
@@ -197,7 +199,7 @@ async function openDatabase(
           defaultTimeoutMs: timeoutMs,
           bypassStartup,
           visibleOperations,
-          onCrash: (crashed) => onBridgeCrash(crashed.dbPath),
+          onCrash: (crashed) => onBridgeCrash(crashed.dbPath, crashed.lastOperation),
         });
         const listing = await bridge.list();
         const db: OpenDatabase = {
@@ -227,7 +229,7 @@ async function openDatabase(
   );
   if (openedDb) {
     await linkedCredentials.ensureConnected(openedDb);
-    void syncMirror(openedDb);
+    await mirror.ensureDir(openedDb);
   }
 }
 
@@ -299,16 +301,17 @@ async function checkOrphanedAccessProcesses(findOrphansScriptPath: string): Prom
   }
 }
 
-/** Fire-and-forget: brings the on-disk AI mirror up to date, in its own cancellable progress. Full
- *  re-export only the first time a database is mirrored; otherwise a cheap incremental check. */
-function syncMirror(db: OpenDatabase): void {
+/** Fire-and-forget: re-reads only the objects already present in the on-disk AI mirror (e.g. after
+ *  "Refresh") — objects the user never opened are never pulled in; see AiMirrorManager.mirrorOnDemand
+ *  for how new objects get mirrored (on tree click, plus their true dependencies). */
+function resyncMirror(db: OpenDatabase): void {
   void vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: vscode.l10n.t('Mirroring {0} objects for AI tools…', registry.labelFor(db)),
+      title: vscode.l10n.t('Refreshing mirrored objects for {0}…', registry.labelFor(db)),
       cancellable: true,
     },
-    (progress, token) => mirror.sync(db, token, progress),
+    (progress, token) => mirror.resyncMirrored(db, token, progress),
   );
 }
 
@@ -330,7 +333,7 @@ async function refresh(key?: string): Promise<void> {
     try {
       db.listing = await db.bridge.list();
       fsProvider.invalidate(db.key);
-      void syncMirror(db);
+      resyncMirror(db);
     } catch (err) {
       void vscode.window.showErrorMessage(
         vscode.l10n.t('Refresh failed for {0}: {1}', registry.labelFor(db), describeError(err)),
@@ -407,6 +410,7 @@ async function openObject(key: string, category: Category, name: string): Promis
   if (!db) {
     return;
   }
+  void mirror.mirrorOnDemand(db, category, name);
   try {
     const uri = await fsProvider.resolveUri(db, category, name);
     const doc = await vscode.workspace.openTextDocument(uri);
@@ -416,13 +420,17 @@ async function openObject(key: string, category: Category, name: string): Promis
   }
 }
 
-function onBridgeCrash(dbPath: string): void {
+function onBridgeCrash(dbPath: string, lastOperation?: string): void {
   const db = registry.getByPath(dbPath);
   if (db) {
     registry.remove(db.key);
     fsProvider.dropDatabase(db.key);
     void mirror.close(db);
   }
+  log(
+    `[access-bridge] connection to ${path.basename(dbPath)} was lost` +
+      (lastOperation ? ` while running: ${lastOperation}` : ''),
+  );
   void vscode.window.showErrorMessage(
     vscode.l10n.t(
       'The connection to Access for {0} was lost and has been cleaned up. Reopen the database to continue.',

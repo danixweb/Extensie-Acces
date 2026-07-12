@@ -66,11 +66,11 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
    * Builds the URI for an object, fetching its content first when the extension
    * depends on it (module kind decides .bas vs .cls) and priming the cache.
    */
-  async resolveUri(db: OpenDatabase, category: Category, name: string): Promise<vscode.Uri> {
+  async resolveUri(db: OpenDatabase, category: Category, name: string, timeoutMs?: number): Promise<vscode.Uri> {
     if (category !== 'Modules') {
       return objectUri(db.key, category, name, EXT_FOR[category]);
     }
-    const { text, isClass, viaVbe } = await db.bridge.getModule(name);
+    const { text, isClass, viaVbe } = await db.bridge.getModule(name, timeoutMs);
     const uri = objectUri(db.key, category, name, isClass ? '.cls' : '.bas');
     const { header, body } = splitModuleHeader(text);
     this.entries.set(uri.toString(), {
@@ -225,9 +225,10 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
     db: OpenDatabase,
     category: Category,
     name: string,
+    timeoutMs?: number,
   ): Promise<{ uri: vscode.Uri; text: string; readonly: boolean }> {
-    const uri = await this.resolveUri(db, category, name);
-    const entry = await this.ensureEntry(uri);
+    const uri = await this.resolveUri(db, category, name, timeoutMs);
+    const entry = await this.ensureEntry(uri, timeoutMs);
     return { uri, text: entry.text, readonly: entry.readonly };
   }
 
@@ -276,7 +277,7 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
 
   // ---------- internals ----------
 
-  private async ensureEntry(uri: vscode.Uri): Promise<Entry> {
+  private async ensureEntry(uri: vscode.Uri, timeoutMs?: number): Promise<Entry> {
     const cached = this.entries.get(uri.toString());
     if (cached) {
       return cached;
@@ -287,7 +288,7 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
       throw vscode.FileSystemError.FileNotFound(uri);
     }
     try {
-      const entry = await this.loadEntry(db, category, name);
+      const entry = await this.loadEntry(db, category, name, timeoutMs);
       this.entries.set(uri.toString(), entry);
       return entry;
     } catch (err) {
@@ -298,30 +299,30 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
     }
   }
 
-  private async loadEntry(db: OpenDatabase, category: Category, name: string): Promise<Entry> {
+  private async loadEntry(db: OpenDatabase, category: Category, name: string, timeoutMs?: number): Promise<Entry> {
     const base = { category, name, mtime: Date.now() };
     switch (category) {
       case 'Modules': {
-        const { text, viaVbe } = await db.bridge.getModule(name);
+        const { text, viaVbe } = await db.bridge.getModule(name, timeoutMs);
         const { header, body } = splitModuleHeader(text);
         return { ...base, readonly: false, text: body, baseline: body, header, viaVbe };
       }
       case 'Queries': {
-        const sql = await db.bridge.getQuerySql(name);
+        const sql = await db.bridge.getQuerySql(name, timeoutMs);
         return { ...base, readonly: false, text: sql, baseline: sql };
       }
       case 'Macros': {
-        const { text, enc } = await db.bridge.getMacro(name);
+        const { text, enc } = await db.bridge.getMacro(name, timeoutMs);
         return { ...base, readonly: false, text, baseline: text, macroEnc: enc };
       }
       case 'Tables': {
-        const { text } = await db.bridge.getReadonlyDef('table', name);
+        const { text } = await db.bridge.getReadonlyDef('table', name, timeoutMs);
         return { ...base, readonly: true, text, baseline: text };
       }
       case 'Forms':
       case 'Reports': {
         const kind = category === 'Forms' ? 'form' : 'report';
-        const { text: fullText, enc } = await db.bridge.getReadonlyDef(kind, name);
+        const { text: fullText, enc } = await db.bridge.getReadonlyDef(kind, name, timeoutMs);
         const split = splitFormHeader(fullText);
         if (!split) {
           // No CodeBehindForm section (HasModule=False) — nothing to edit, show as-is.

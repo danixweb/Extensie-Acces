@@ -101,16 +101,34 @@ Pentru fiecare cod plauzibil identificat în ACEASTĂ rutină (nu generic — tr
 
 **Prezintă aceste propuneri explicit utilizatorului** (listă scurtă: cod eroare → linia/operația din rutină care îl poate provoca → tratare propusă) și aplică-le doar pe cele confirmate — deciziile de recuperare la erori specifice schimbă comportamentul programului, spre deosebire de scheletul din Pasul 4, care e pur mecanic și se aplică direct.
 
-**Fiecare `Case <numar>` adăugat trebuie însoțit de un comentariu explicativ**, pe linia lui sau imediat deasupra: ce înseamnă codul de eroare (numele standard VBA/DAO, ex. "Division by zero") și de ce a fost inclus pentru această rutină anume (ce linie/operație din cod îl poate provoca). Exemplu:
+**Fiecare `Case <numar>` adăugat trebuie însoțit de comentarii explicative, în trei părți:**
+
+1. Pe linia lui `Case <numar>`: ce înseamnă codul de eroare (numele standard VBA/DAO, ex. "Division by zero") și de ce a fost inclus pentru această rutină anume (ce linie/operație din cod îl poate provoca).
+2. În corpul `Case`-ului (deasupra sau lângă instrucțiunea de recuperare): **de ce s-a ales exact acea tratare** — de ce `Resume Next` și nu `Exit Sub`/`Function` (sau invers), de ce o valoare implicită anume, de ce un mesaj către utilizator în loc de recuperare silențioasă.
+3. **Rezultatul scontat — în ce stare rămân rutina și datele după această tratare.** Nu e suficient un comentariu de tipul "ieșim din rutină" — dacă `Exit Sub`/`Function` (sau `GoTo TRATARE_ERORI_iesire`) survine **după** ce rutina a executat deja alte operații (scrieri în tabelă, `.Edit`/`.Update` pe recordset, alte apeluri care au produs efecte), comentariul trebuie să spună explicit ce s-a executat deja și ce a rămas netratat/incomplet — ex. "ATENȚIE: la acest punct linia din COMENZI a fost deja actualizată, dar STOC nu mai apucă să se recalculeze — de corectat manual" — nu doar semnala că "a apărut o problemă". Dacă `Resume Next` presupune continuarea cu o valoare implicită, precizează concret ce rezultat va produce restul rutinei cu acea valoare (ex. "totalul va ieși 0 pentru acest rând, nu blochează restul comenzii").
+
+Nu e suficient ca utilizatorul să afle doar că a existat o eroare și că rutina a ieșit — trebuie să știe și ce a apucat să facă rutina până acolo și ce a rămas neexecutat, ca să poată decide dacă e nevoie de o corecție manuală a datelor.
+
+Exemplu:
 
 ```vb
 N   Case 94 ' Invalid use of Null - DLookup de la linia 40 poate intoarce Null daca nu gaseste inregistrarea
-N       ...
+N       ' tratam ca stoc 0: lipsa inregistrarii inseamna produs neintrodus inca, nu eroare blocanta
+N       ' rezultat: rutina continua cu stoc 0, restul calculului comenzii nu este afectat
+N       sngStoc = 0
+N       Resume Next
 N   Case 11 ' Division by zero - impartirea la Cantitate de la linia 60 poate fi 0
-N       ...
+N       ' Cantitate 0 e o stare valida (comanda goala) - continuam fara pretul unitar, nu oprim rutina
+N       ' rezultat: pretul unitar ramane 0 pentru acest rand, restul liniilor comenzii se calculeaza normal
+N       Resume Next
+N   Case 3167 ' Record is deleted - inregistrarea din COMENZI a fost stearsa intre citire (linia 20) si scrierea de la linia 90
+N       ' rezultat: liniile 20-80 s-au executat deja (COMANDA a fost deja marcata "in lucru" in linia 50);
+N       ' scrierea finala de la linia 90 NU se mai executa - starea "in lucru" ramane setata si trebuie corectata manual
+N       MsgBox "Comanda a fost stearsa de alt utilizator in timpul procesarii. Verificati manual starea comenzii!"
+N       Exit Sub
 ```
 
-Nu adăuga acest comentariu pe `Case 0` sau `Case Else` din scheletul de bază (Pasul 4) — doar pe `Case`-urile de cod specific propuse aici.
+Nu adăuga aceste comentarii pe `Case 0` sau `Case Else` din scheletul de bază (Pasul 4) — doar pe `Case`-urile de cod specific propuse aici.
 
 ## Ce NU face acest skill
 

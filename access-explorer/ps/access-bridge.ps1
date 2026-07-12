@@ -99,6 +99,15 @@ function Assert-Open {
     }
 }
 
+# Releases a short-lived per-request COM RCW (DAO collection/item, VBComponent, CodeModule).
+# Never call this on $script:app itself or anything reused across requests — Close-App is
+# the only place that releases the application object, on the way out.
+function Clear-ComObject([object]$obj) {
+    if ($null -ne $obj -and [System.Runtime.InteropServices.Marshal]::IsComObject($obj)) {
+        try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($obj) } catch { }
+    }
+}
+
 function Get-Db { return $script:app.CurrentDb() }
 
 function Op-Open([hashtable]$args_) {
@@ -165,23 +174,36 @@ function Op-List {
     $db = Get-Db
     $tables = @()
     $hasLinkedTables = $false
-    $db.TableDefs.Refresh()
-    foreach ($t in $db.TableDefs) {
-        if ($t.Connect -and $t.Connect -like 'ODBC;*') { $hasLinkedTables = $true }
+    $tableDefs = $db.TableDefs
+    $tableDefs.Refresh()
+    foreach ($t in $tableDefs) {
         $n = $t.Name
+        $isOdbc = [bool]($t.Connect -and $t.Connect -like 'ODBC;*')
+        Clear-ComObject $t
+        if ($isOdbc) { $hasLinkedTables = $true }
         if ($n -like 'MSys*' -or $n -like '~*' -or $n -like 'f_*ADO*') { continue }
         $tables += $n
     }
+    Clear-ComObject $tableDefs
+
     $queries = @()
-    $db.QueryDefs.Refresh()
-    foreach ($q in $db.QueryDefs) {
-        if ($q.Name -like '~*') { continue }
-        $queries += $q.Name
+    $queryDefs = $db.QueryDefs
+    $queryDefs.Refresh()
+    foreach ($q in $queryDefs) {
+        $qn = $q.Name
+        Clear-ComObject $q
+        if ($qn -like '~*') { continue }
+        $queries += $qn
     }
-    $forms = @();   foreach ($o in $script:app.CurrentProject.AllForms)   { $forms   += $o.Name }
-    $reports = @(); foreach ($o in $script:app.CurrentProject.AllReports) { $reports += $o.Name }
-    $macros = @();  foreach ($o in $script:app.CurrentProject.AllMacros)  { $macros  += $o.Name }
-    $modules = @(); foreach ($o in $script:app.CurrentProject.AllModules) { $modules += $o.Name }
+    Clear-ComObject $queryDefs
+
+    $proj = $script:app.CurrentProject
+    $forms = @();   foreach ($o in $proj.AllForms)   { $forms   += $o.Name; Clear-ComObject $o }
+    $reports = @(); foreach ($o in $proj.AllReports) { $reports += $o.Name; Clear-ComObject $o }
+    $macros = @();  foreach ($o in $proj.AllMacros)  { $macros  += $o.Name; Clear-ComObject $o }
+    $modules = @(); foreach ($o in $proj.AllModules) { $modules += $o.Name; Clear-ComObject $o }
+    Clear-ComObject $proj
+
     return @{
         tables  = @($tables  | Sort-Object)
         queries = @($queries | Sort-Object)
@@ -275,7 +297,11 @@ function Show-CodePane([string]$name) {
     if (-not $script:visibleOperations) { return }
     try {
         $script:app.VBE.MainWindow.Visible = $true
-        (Get-VbComponent $name).CodeModule.CodePane.Show()
+        $vbc = Get-VbComponent $name
+        $cm = $vbc.CodeModule
+        $cm.CodePane.Show()
+        Clear-ComObject $cm
+        Clear-ComObject $vbc
     } catch { }
 }
 
@@ -296,7 +322,11 @@ function Op-GetModule([hashtable]$args_) {
         # Newer Access versions include the VERSION/Attribute header; detect class-ness
         # from it, refining via VBE when available.
         $isClass = $r.text -match '(?m)^\s*VERSION \d+\.\d+ CLASS\s*$'
-        try { $isClass = ((Get-VbComponent $name).Type -eq 2) } catch { }
+        try {
+            $vbc = Get-VbComponent $name
+            $isClass = ($vbc.Type -eq 2)
+            Clear-ComObject $vbc
+        } catch { }
         return @{ isClass = [bool]$isClass; viaVbe = $false }
     }
     # Empty export: either a genuinely empty module or a class module this Access
@@ -307,7 +337,10 @@ function Op-GetModule([hashtable]$args_) {
         $text = ''
         if ($cm.CountOfLines -gt 0) { $text = $cm.Lines(1, $cm.CountOfLines) }
         [System.IO.File]::WriteAllText($args_.file, $text, $Utf8NoBom)
-        return @{ isClass = ($c.Type -eq 2); viaVbe = $true }
+        $isClassVia = ($c.Type -eq 2)
+        Clear-ComObject $cm
+        Clear-ComObject $c
+        return @{ isClass = $isClassVia; viaVbe = $true }
     } catch {
         return @{ _error = @{
             code    = 'VBE_TRUST_REQUIRED'
@@ -325,16 +358,25 @@ function Op-SaveModule([hashtable]$args_) {
     if ($args_.ContainsKey('viaVbe') -and $args_.viaVbe) { $viaVbe = $true }
     if (-not $viaVbe) {
         Import-ObjectText $acModule $name $args_.file 'ansi'
+        # LoadFromText only updates the in-memory VBA project; without an explicit,
+        # synchronous Save here the change only reaches disk via the async post-save
+        # compile check (fsProvider.scheduleCompileCheck), and is lost if the database
+        # is closed (Quit acQuitSaveNone) before that check finishes.
+        $script:app.DoCmd.Save($acModule, $name)
         Show-CodePane $name
         return @{ saved = $true }
     }
     # Modules read through the VBE must be written back through it too —
     # LoadFromText would replace the class module with a broken standard module.
     $text = [System.IO.File]::ReadAllText($args_.file, $Utf8NoBom)
-    $cm = (Get-VbComponent $name).CodeModule
+    $vbc = Get-VbComponent $name
+    $cm = $vbc.CodeModule
     if ($cm.CountOfLines -gt 0) { $cm.DeleteLines(1, $cm.CountOfLines) }
     if ($text.Length -gt 0) { $cm.AddFromString($text) }
+    $script:app.DoCmd.Save($acModule, $name)
     Show-CodePane $name
+    Clear-ComObject $cm
+    Clear-ComObject $vbc
     return @{ saved = $true }
 }
 
@@ -380,23 +422,38 @@ function Op-GetTableDef([hashtable]$args_) {
                    102='Complex Byte'; 103='Complex Integer'; 104='Complex Long'; 106='Complex Double' }
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.AppendLine("Table: $($t.Name)")
-    [void]$sb.AppendLine("Records: $($t.RecordCount)")
+    # RecordCount on an ODBC-linked table forces DAO to run a live query against the
+    # remote server — potentially slow/hung on a bad connection, independent of any COM
+    # cleanup or timeout tuning. It's purely informational here, so skip it for links.
+    $isOdbc = [bool]($t.Connect -and $t.Connect -like 'ODBC;*')
+    $recordCountText = if ($isOdbc) { '(linked table — count not queried)' } else { [string]$t.RecordCount }
+    [void]$sb.AppendLine("Records: $recordCountText")
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('Fields:')
-    foreach ($f in $t.Fields) {
+    $fields = $t.Fields
+    foreach ($f in $fields) {
         $tn = if ($daoTypes.ContainsKey([int]$f.Type)) { $daoTypes[[int]$f.Type] } else { "Type $($f.Type)" }
         $req = if ($f.Required) { ' REQUIRED' } else { '' }
         [void]$sb.AppendLine(("  {0,-32} {1}({2}){3}" -f $f.Name, $tn, $f.Size, $req))
+        Clear-ComObject $f
     }
+    Clear-ComObject $fields
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('Indexes:')
-    foreach ($ix in $t.Indexes) {
+    $indexes = $t.Indexes
+    foreach ($ix in $indexes) {
         $flags = @()
         if ($ix.Primary) { $flags += 'PRIMARY' }
         if ($ix.Unique)  { $flags += 'UNIQUE' }
-        $cols = @(); foreach ($f in $ix.Fields) { $cols += $f.Name }
+        $cols = @()
+        $ixFields = $ix.Fields
+        foreach ($f in $ixFields) { $cols += $f.Name; Clear-ComObject $f }
+        Clear-ComObject $ixFields
         [void]$sb.AppendLine(("  {0,-32} ({1}) {2}" -f $ix.Name, ($cols -join ', '), ($flags -join ' ')))
+        Clear-ComObject $ix
     }
+    Clear-ComObject $indexes
+    Clear-ComObject $t
     [System.IO.File]::WriteAllText($args_.file, $sb.ToString(), $Utf8NoBom)
     return @{ }
 }

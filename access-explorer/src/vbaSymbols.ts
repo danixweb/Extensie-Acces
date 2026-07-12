@@ -17,14 +17,17 @@ const DECL_RE =
   /^\s*(?:Private\s+|Public\s+|Friend\s+|Static\s+)*(Sub|Function|Property\s+Get|Property\s+Let|Property\s+Set)\s+([A-Za-z_]\w*)\s*\(/i;
 const END_RE = /^\s*End\s+(Sub|Function|Property)\s*$/i;
 
-interface Proc {
+export interface Proc {
   name: string;
   kindWord: string;
   startLine: number;
   endLine: number;
 }
 
-function parseProcedures(text: string): Proc[] {
+/** Sub/Function/Property declarations found in raw VBA text, with their line ranges — the parsing
+ *  primitive shared by the Outline/AI-selection grouping below and the cross-module call index
+ *  used by on-demand AI-mirror dependency expansion (src/aiMirror.ts). */
+export function parseProcedures(text: string): Proc[] {
   const lines = text.split(/\r\n|\n/);
   const procs: Proc[] = [];
   let current: Proc | null = null;

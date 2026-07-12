@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import { BridgeError } from './errors';
+import { log } from './logger';
 
 export interface DbListing {
   tables: string[];
@@ -40,6 +41,12 @@ export interface BridgeOptions {
 const OPEN_TIMEOUT_MS = 60_000;
 const COMPILE_TIMEOUT_MS = 60_000;
 const COMPACT_TIMEOUT_MS = 120_000;
+/**
+ * Timeout for reads issued by the background AI mirror (materialize/quickSync). Mirroring is
+ * fire-and-forget — nothing is waiting synchronously — so it can afford to wait longer than the
+ * default interactive op timeout before a large module/report is treated as hung.
+ */
+export const MIRROR_TIMEOUT_MS = 45_000;
 const QUIT_GRACE_MS = 5_000;
 /** Margin over the poll timeout the caller requests, so the bridge watchdog never fires first. */
 const UNLOCK_TIMEOUT_MARGIN_MS = 15_000;
@@ -56,6 +63,7 @@ export class AccessBridge {
   private queue: Promise<unknown> = Promise.resolve();
   private accessPid = 0;
   private disposed = false;
+  private currentOp: string | undefined;
 
   private constructor(
     readonly dbPath: string,
@@ -91,6 +99,11 @@ export class AccessBridge {
     return this.accessPid;
   }
 
+  /** The op (and object name, if any) currently in flight — for crash diagnostics only. */
+  get lastOperation(): string | undefined {
+    return this.currentOp;
+  }
+
   private async start(): Promise<void> {
     await fs.mkdir(this.opts.workDir, { recursive: true });
     this.child = cp.spawn(
@@ -109,7 +122,7 @@ export class AccessBridge {
     rl.on('line', (line) => this.onLine(line));
     this.child.stderr!.setEncoding('utf8');
     this.child.stderr!.on('data', (chunk: string) => {
-      console.warn(`[access-bridge ${path.basename(this.dbPath)}] ${chunk.trimEnd()}`);
+      log(`[access-bridge ${path.basename(this.dbPath)}] ${chunk.trimEnd()}`);
     });
     this.child.on('exit', () => this.failAllPending(new BridgeError('BRIDGE_CRASHED')));
     this.child.on('error', (err) =>
@@ -122,7 +135,7 @@ export class AccessBridge {
     try {
       msg = JSON.parse(line);
     } catch {
-      console.warn(`[access-bridge] non-JSON stdout line ignored: ${line.slice(0, 200)}`);
+      log(`[access-bridge] non-JSON stdout line ignored: ${line.slice(0, 200)}`);
       return;
     }
     const entry = msg.id !== undefined ? this.pending.get(msg.id) : undefined;
@@ -157,6 +170,8 @@ export class AccessBridge {
       }
       const id = this.nextId++;
       const timeout = timeoutMs ?? this.opts.defaultTimeoutMs;
+      const nameArg = typeof args.name === 'string' ? args.name : undefined;
+      this.currentOp = nameArg ? `${op}(${nameArg})` : op;
       const promise = new Promise<unknown>((resolve, reject) => {
         const timer = setTimeout(() => {
           this.pending.delete(id);
@@ -185,9 +200,12 @@ export class AccessBridge {
    * Returns the raw module export (SaveAsText, header included) or — when this
    * Access version cannot SaveAsText class modules — the VBE code body (viaVbe).
    */
-  async getModule(name: string): Promise<{ text: string; isClass: boolean; viaVbe: boolean }> {
+  async getModule(
+    name: string,
+    timeoutMs?: number,
+  ): Promise<{ text: string; isClass: boolean; viaVbe: boolean }> {
     return this.withTempFile(async (file) => {
-      const data = (await this.request('getModule', { name, file })) as {
+      const data = (await this.request('getModule', { name, file }, timeoutMs)) as {
         isClass: boolean;
         viaVbe: boolean;
       };
@@ -202,9 +220,9 @@ export class AccessBridge {
     });
   }
 
-  async getMacro(name: string): Promise<{ text: string; enc: string }> {
+  async getMacro(name: string, timeoutMs?: number): Promise<{ text: string; enc: string }> {
     return this.withTempFile(async (file) => {
-      const data = (await this.request('getMacro', { name, file })) as { enc: string };
+      const data = (await this.request('getMacro', { name, file }, timeoutMs)) as { enc: string };
       return { text: await fs.readFile(file, 'utf8'), enc: data.enc };
     });
   }
@@ -216,9 +234,9 @@ export class AccessBridge {
     });
   }
 
-  async getQuerySql(name: string): Promise<string> {
+  async getQuerySql(name: string, timeoutMs?: number): Promise<string> {
     return this.withTempFile(async (file) => {
-      await this.request('getQuerySql', { name, file });
+      await this.request('getQuerySql', { name, file }, timeoutMs);
       return fs.readFile(file, 'utf8');
     });
   }
@@ -233,10 +251,11 @@ export class AccessBridge {
   async getReadonlyDef(
     kind: 'table' | 'form' | 'report',
     name: string,
+    timeoutMs?: number,
   ): Promise<{ text: string; enc?: string }> {
     const op = kind === 'table' ? 'getTableDef' : kind === 'form' ? 'getFormDef' : 'getReportDef';
     return this.withTempFile(async (file) => {
-      const data = (await this.request(op, { name, file })) as { enc?: string };
+      const data = (await this.request(op, { name, file }, timeoutMs)) as { enc?: string };
       const text = await fs.readFile(file, 'utf8');
       return { text, enc: data.enc };
     });

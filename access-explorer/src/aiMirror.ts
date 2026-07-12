@@ -2,8 +2,15 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { MIRROR_TIMEOUT_MS } from './bridge';
 import { describeError } from './errors';
 import { AccessFsProvider } from './fsProvider';
+import { log } from './logger';
+import {
+  extractCalledProcedureNames,
+  extractDomainReferences,
+  extractSqlReferences,
+} from './mirrorDependencies';
 import {
   CATEGORIES,
   Category,
@@ -15,6 +22,7 @@ import {
   OpenDatabase,
   parseUri,
 } from './model';
+import { parseProcedures } from './vbaSymbols';
 
 export const MIRROR_DIR_NAME = '.accdb-ai';
 
@@ -45,6 +53,14 @@ function mirrorEnabled(): boolean {
   return vscode.workspace.getConfiguration('accessExplorer').get<boolean>('aiMirror.enabled', true);
 }
 
+/** Pause between objects during background mirroring, so a tight loop of COM reads doesn't
+ *  pile up unreleased references faster than the bridge process can reclaim them. */
+const MIRROR_STEP_DELAY_MS = 75;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Mirrors every object of an open database to real files on disk (next to the .accdb, in
  * .accdb-ai/<Category>/<name><ext>) so external tools that only see the real filesystem — such as
@@ -57,6 +73,9 @@ export class AiMirrorManager implements vscode.Disposable {
   private readonly processing = new Map<string, Promise<void>>();
   private readonly pendingRerun = new Set<string>();
   private readonly listener: vscode.Disposable;
+  /** Per-db procedure-name (uppercased) -> module-name index, built lazily by ensureModuleIndex. */
+  private readonly procIndex = new Map<string, Map<string, string>>();
+  private readonly procIndexBuilding = new Map<string, Promise<Map<string, string>>>();
 
   constructor(
     private readonly fsProvider: AccessFsProvider,
@@ -97,24 +116,40 @@ export class AiMirrorManager implements vscode.Disposable {
         if (token?.isCancellationRequested) {
           return;
         }
+        if (!db.bridge.isAlive) {
+          log(`[ai-mirror] mirroring aborted — connection lost (${done}/${total} done)`);
+          return;
+        }
         try {
           await this.materializeOne(db, state, category, name, seen);
+          log(`[ai-mirror] ${category}/${name}: OK (${done + 1}/${total})`);
         } catch (err) {
-          console.warn(`[access-explorer ai-mirror] failed to export ${category}/${name}: ${describeError(err)}`);
+          log(`[ai-mirror] ${category}/${name}: FAILED — ${describeError(err)} (${done + 1}/${total})`);
         }
         done++;
         progress?.report({ message: `${done} / ${total}`, increment: 100 / total });
+        await delay(MIRROR_STEP_DELAY_MS);
       }
     }
     await this.pruneStale(state, seen);
   }
 
+  /** Ensures the mirror dir + watcher exist for a just-opened database, with no COM reads —
+   *  objects are mirrored on demand (see `mirrorOnDemand`), not eagerly at open. */
+  async ensureDir(db: OpenDatabase): Promise<void> {
+    if (!mirrorEnabled()) {
+      return;
+    }
+    const dir = this.mirrorDirFor(db);
+    await fs.mkdir(dir, { recursive: true });
+    this.stateFor(db, dir);
+  }
+
   /**
-   * Entry point for automatic mirroring (database open, refresh): does a full `materialize()`
-   * the first time a database is mirrored, otherwise a cheap `quickSync()` that never re-reads
-   * unchanged objects over COM. Full re-reads only happen through the explicit re-mirror command.
+   * Refreshes only the objects already mirrored (e.g. after "Refresh" re-read the listing) —
+   * never pulls in objects the user hasn't opened, unlike the old eager full-listing sync.
    */
-  async sync(
+  async resyncMirrored(
     db: OpenDatabase,
     token?: vscode.CancellationToken,
     progress?: vscode.Progress<{ message?: string; increment?: number }>,
@@ -123,77 +158,193 @@ export class AiMirrorManager implements vscode.Disposable {
       return;
     }
     const dir = this.mirrorDirFor(db);
-    if (!(await this.pathExists(dir))) {
-      await this.materialize(db, token, progress);
-      return;
+    const state = this.perDb.get(db.key);
+    if (!state) {
+      await this.ensureDir(db);
+      return; // nothing mirrored yet — nothing to refresh
     }
-    await this.quickSync(db, dir, token, progress);
+    const records = [...state.byPath.values()];
+    const seen = new Set<string>();
+    const total = records.length || 1;
+    let done = 0;
+    for (const record of records) {
+      if (token?.isCancellationRequested) {
+        return;
+      }
+      if (!db.bridge.isAlive) {
+        log(`[ai-mirror] refresh aborted — connection lost (${done}/${total} done)`);
+        return;
+      }
+      if (!listingFor(db.listing, record.category).some((n) => n.toUpperCase() === record.name.toUpperCase())) {
+        await this.removeMirrorFile(state, dir, record.category, record.name);
+        done++;
+        continue;
+      }
+      try {
+        await this.materializeOne(db, state, record.category, record.name, seen);
+        log(`[ai-mirror] ${record.category}/${record.name}: OK (${done + 1}/${total})`);
+      } catch (err) {
+        log(`[ai-mirror] ${record.category}/${record.name}: FAILED — ${describeError(err)} (${done + 1}/${total})`);
+      }
+      done++;
+      progress?.report({ message: `${done} / ${total}`, increment: 100 / total });
+      await delay(MIRROR_STEP_DELAY_MS);
+    }
   }
 
   /**
-   * Diffs the on-disk mirror (file names only, no COM) against the current listing to find
-   * objects newly created in Access since the last mirror pass, and mirror-side files for
-   * objects renamed/deleted in Access. Only genuinely new objects pay for a COM read — objects
-   * already mirrored and still present are left untouched.
+   * Mirrors one object (typically: the one just clicked in the Access Explorer tree) plus its
+   * true dependencies, recursively: tables/queries referenced by a query's SQL, tables/queries
+   * named as a D-function domain, and other modules containing procedures the code calls. This is
+   * the on-demand replacement for eagerly mirroring the whole database at open — a database with
+   * 1770+ objects would otherwise time out/degrade long before finishing (see MIRROR_TIMEOUT_MS
+   * and the COM-cleanup work in access-bridge.ps1 for that earlier, now-secondary, class of fix).
    */
-  private async quickSync(
-    db: OpenDatabase,
-    dir: string,
-    token?: vscode.CancellationToken,
-    progress?: vscode.Progress<{ message?: string; increment?: number }>,
-  ): Promise<void> {
+  async mirrorOnDemand(db: OpenDatabase, category: Category, name: string): Promise<void> {
+    if (!mirrorEnabled()) {
+      return;
+    }
+    const dir = this.mirrorDirFor(db);
+    await fs.mkdir(dir, { recursive: true });
     const state = this.stateFor(db, dir);
-    const perCategory: { category: Category; added: string[]; removed: string[] }[] = [];
-    for (const category of CATEGORIES) {
-      const mirrored = await this.mirroredNames(dir, category);
-      const current = new Set(listingFor(db.listing, category));
-      const added = [...current].filter((name) => !mirrored.has(name));
-      const removed = [...mirrored].filter((name) => !current.has(name));
-      if (added.length > 0 || removed.length > 0) {
-        perCategory.push({ category, added, removed });
+    const seen = new Set<string>(); // satisfies materializeOne's signature; no pruneStale pass here
+    const visited = new Set<string>();
+    const queue: { category: Category; name: string }[] = [{ category, name }];
+
+    while (queue.length > 0) {
+      const next = queue.shift()!;
+      const visitKey = `${next.category} ${next.name.toUpperCase()}`;
+      if (visited.has(visitKey)) {
+        continue;
       }
-    }
-    if (perCategory.length === 0) {
-      return; // nothing new or removed — no COM reads, no disk writes
-    }
-    const seen = new Set<string>();
-    const total = perCategory.reduce((n, c) => n + c.added.length, 0) || 1;
-    let done = 0;
-    for (const { category, added, removed } of perCategory) {
-      for (const name of added) {
-        if (token?.isCancellationRequested) {
-          return;
-        }
-        try {
-          await this.materializeOne(db, state, category, name, seen);
-        } catch (err) {
-          console.warn(`[access-explorer ai-mirror] failed to export ${category}/${name}: ${describeError(err)}`);
-        }
-        done++;
-        progress?.report({ message: `${done} / ${total}`, increment: 100 / total });
+      visited.add(visitKey);
+      const resolvedName = listingFor(db.listing, next.category).find(
+        (n) => n.toUpperCase() === next.name.toUpperCase(),
+      );
+      if (!resolvedName) {
+        continue; // renamed/deleted since the listing was last refreshed
       }
-      for (const name of removed) {
-        await this.removeMirrorFile(state, dir, category, name);
+      if (!db.bridge.isAlive) {
+        log(`[ai-mirror] on-demand mirroring aborted — connection lost`);
+        return;
+      }
+
+      let text: string;
+      try {
+        text = await this.materializeOne(db, state, next.category, resolvedName, seen);
+        log(`[ai-mirror] ${next.category}/${resolvedName}: OK (on-demand)`);
+      } catch (err) {
+        log(`[ai-mirror] ${next.category}/${resolvedName}: FAILED — ${describeError(err)} (on-demand)`);
+        continue;
+      }
+      await delay(MIRROR_STEP_DELAY_MS);
+
+      const dependencyNames = new Set<string>();
+      if (next.category === 'Queries') {
+        for (const ref of extractSqlReferences(text)) {
+          dependencyNames.add(ref);
+        }
+      } else if (next.category === 'Modules' || next.category === 'Forms' || next.category === 'Reports') {
+        for (const ref of extractDomainReferences(text)) {
+          dependencyNames.add(ref);
+        }
+        const localProcNames = new Set(parseProcedures(text).map((p) => p.name.toUpperCase()));
+        const hasExternalCandidate = [...text.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\s*\(/g)].some(
+          (m) => !localProcNames.has(m[0].replace(/\s*\($/, '').toUpperCase()),
+        );
+        if (hasExternalCandidate) {
+          const index = await this.ensureModuleIndex(db, state);
+          for (const upper of extractCalledProcedureNames(text, new Set(index.keys()))) {
+            const moduleName = index.get(upper);
+            if (moduleName) {
+              queue.push({ category: 'Modules', name: moduleName });
+            }
+          }
+        }
+      }
+      for (const depName of dependencyNames) {
+        const resolved = this.resolveTableOrQuery(db, depName);
+        if (resolved) {
+          queue.push(resolved);
+        }
       }
     }
   }
 
-  /** Decoded Access object names already mirrored on disk for a category — a plain directory listing, no COM. */
-  private async mirroredNames(dir: string, category: Category): Promise<Set<string>> {
-    const names = new Set<string>();
-    let entries: string[];
-    try {
-      entries = await fs.readdir(path.join(dir, category));
-    } catch {
-      return names; // category folder doesn't exist yet — nothing mirrored
-    }
-    for (const entry of entries) {
-      const decoded = this.decodeMirrorFileName(category, entry);
-      if (decoded) {
-        names.add(decoded);
+  /** Matches a name (from SQL/domain-function extraction) against Tables first, then Queries — both
+   *  are valid D-function/SQL domains, case-insensitively, since Access names are case-insensitive. */
+  private resolveTableOrQuery(db: OpenDatabase, name: string): { category: Category; name: string } | undefined {
+    for (const category of ['Tables', 'Queries'] as const) {
+      const match = listingFor(db.listing, category).find((n) => n.toUpperCase() === name.toUpperCase());
+      if (match) {
+        return { category, name: match };
       }
     }
-    return names;
+    return undefined;
+  }
+
+  /**
+   * Lazily builds (once per open database) a procedure-name → module-name index across every
+   * Module/Form/Report, so `mirrorOnDemand` can find which *other* module a called procedure lives
+   * in. This is the one remaining "read everything in a category" operation in the new on-demand
+   * design — but deferred until the first module with an unresolved call is actually opened,
+   * rather than running unconditionally at every database open, and it reuses the same safety nets
+   * (isAlive abort, MIRROR_TIMEOUT_MS, pacing delay) as the old eager mirror. Each module read here
+   * is also written to the on-disk mirror via materializeOne, so the cost is paid once.
+   */
+  private async ensureModuleIndex(db: OpenDatabase, state: DbMirrorState): Promise<Map<string, string>> {
+    const existing = this.procIndex.get(db.key);
+    if (existing) {
+      return existing;
+    }
+    const building = this.procIndexBuilding.get(db.key);
+    if (building) {
+      return building;
+    }
+    const promise = this.buildModuleIndex(db, state);
+    this.procIndexBuilding.set(db.key, promise);
+    try {
+      const index = await promise;
+      this.procIndex.set(db.key, index);
+      return index;
+    } finally {
+      this.procIndexBuilding.delete(db.key);
+    }
+  }
+
+  private async buildModuleIndex(db: OpenDatabase, state: DbMirrorState): Promise<Map<string, string>> {
+    const index = new Map<string, string>();
+    const moduleNames = listingFor(db.listing, 'Modules');
+    const seen = new Set<string>();
+    const total = moduleNames.length || 1;
+    let done = 0;
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: vscode.l10n.t('Indexing modules for {0}…', path.basename(db.dbPath)),
+        cancellable: true,
+      },
+      async (progress, token) => {
+        for (const name of moduleNames) {
+          if (token.isCancellationRequested || !db.bridge.isAlive) {
+            log(`[ai-mirror] module index build stopped (${done}/${total} done)`);
+            return;
+          }
+          try {
+            const text = await this.materializeOne(db, state, 'Modules', name, seen);
+            for (const proc of parseProcedures(text)) {
+              index.set(proc.name.toUpperCase(), name);
+            }
+          } catch (err) {
+            log(`[ai-mirror] failed to index Modules/${name}: ${describeError(err)}`);
+          }
+          done++;
+          progress.report({ message: `${done} / ${total}`, increment: 100 / total });
+          await delay(MIRROR_STEP_DELAY_MS);
+        }
+      },
+    );
+    return index;
   }
 
   /** Reverses materializeOne's `encodeFsName(name) + ext` back into the original Access object name. */
@@ -240,19 +391,10 @@ export class AiMirrorManager implements vscode.Disposable {
     }
   }
 
-  private async pathExists(p: string): Promise<boolean> {
-    try {
-      await fs.access(p);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   /**
-   * Lazily populates a MirrorRecord for an object that quickSync left untouched (already
-   * mirrored, unchanged), via a single COM read — used the first time such an object is edited
-   * from either side after a quick, incremental open. Never overwrites the on-disk mirror file,
+   * Lazily populates a MirrorRecord for an object not mirrored yet (either never opened, or from
+   * an on-demand pass that stopped before reaching it), via a single COM read — used the first
+   * time such an object is edited from either side. Never overwrites the on-disk mirror file,
    * so a pending external edit is preserved for the caller to push back to Access.
    */
   private async ensureRecord(
@@ -287,13 +429,15 @@ export class AiMirrorManager implements vscode.Disposable {
       state.byUri.set(uri.toString(), record);
       return record;
     } catch (err) {
-      console.warn(`[access-explorer ai-mirror] failed to hydrate ${category}/${name}: ${describeError(err)}`);
+      log(`[ai-mirror] failed to hydrate ${category}/${name}: ${describeError(err)}`);
       return undefined;
     }
   }
 
   /** Stops watching and removes the mirror folder — it is a derived artifact, not a durable store. */
   async close(db: OpenDatabase): Promise<void> {
+    this.procIndex.delete(db.key);
+    this.procIndexBuilding.delete(db.key);
     const state = this.perDb.get(db.key);
     if (!state) {
       return;
@@ -320,18 +464,20 @@ export class AiMirrorManager implements vscode.Disposable {
     return state;
   }
 
+  /** Returns the object's fetched text so callers that also need to parse it (on-demand dependency
+   *  expansion, module index build) don't pay for a second COM round-trip. */
   private async materializeOne(
     db: OpenDatabase,
     state: DbMirrorState,
     category: Category,
     name: string,
     seen: Set<string>,
-  ): Promise<void> {
-    const { uri, text, readonly } = await this.fsProvider.readObject(db, category, name);
+  ): Promise<string> {
+    const { uri, text, readonly } = await this.fsProvider.readObject(db, category, name, MIRROR_TIMEOUT_MS);
     const fileName = uri.path.slice(uri.path.lastIndexOf('/') + 1);
     const ext = extFor(category, fileName);
     if (!ext) {
-      return; // defensive — resolveUri always produces a matching extension
+      return text; // defensive — resolveUri always produces a matching extension
     }
     const filePath = path.join(state.dir, category, encodeFsName(name) + ext);
     const key = filePath.toLowerCase();
@@ -340,13 +486,14 @@ export class AiMirrorManager implements vscode.Disposable {
     const hash = sha1(text);
     const existing = state.byPath.get(key);
     if (existing && existing.lastWrittenHash === hash) {
-      return; // unchanged since last materialize — skip disk IO
+      return text; // unchanged since last materialize — skip disk IO
     }
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await this.writeMirrorFile(filePath, text);
     const record: MirrorRecord = { uri, category, name, filePath, readonly, canonicalText: text, lastWrittenHash: hash };
     state.byPath.set(key, record);
     state.byUri.set(uri.toString(), record);
+    return text;
   }
 
   /** Removes mirror files for objects renamed/deleted in Access since the last materialize. */
@@ -374,7 +521,7 @@ export class AiMirrorManager implements vscode.Disposable {
         continue;
       }
       void this.syncFromVirtualDoc(event.uri).catch((err) =>
-        console.warn(`[access-explorer ai-mirror] mirror sync failed: ${describeError(err)}`),
+        log(`[ai-mirror] mirror sync failed: ${describeError(err)}`),
       );
     }
   }
@@ -416,7 +563,7 @@ export class AiMirrorManager implements vscode.Disposable {
       try {
         await run();
       } catch (err) {
-        console.warn(`[access-explorer ai-mirror] ${key}: ${describeError(err)}`);
+        log(`[ai-mirror] ${key}: ${describeError(err)}`);
       } finally {
         this.processing.delete(key);
         if (this.pendingRerun.delete(key)) {
@@ -451,8 +598,8 @@ export class AiMirrorManager implements vscode.Disposable {
     const db = this.registry.get(dbKey);
     let record = state?.byPath.get(filePath.toLowerCase());
     if (!record && state && db) {
-      // Not yet hydrated — this may be an object quickSync left untouched (already mirrored,
-      // unchanged) rather than an unknown file. Confirm it against the current listing first.
+      // Not yet hydrated — this may be a real, existing database object that on-demand mirroring
+      // just hasn't reached yet, rather than an unknown file. Confirm it against the listing first.
       const parsed = this.parseMirrorFilePath(state, filePath);
       if (parsed && listingFor(db.listing, parsed.category).includes(parsed.name)) {
         record = await this.ensureRecord(db, state, parsed.category, parsed.name);

@@ -23,3 +23,4 @@ Tabel de referință pentru Pasul 5 din SKILL.md. Nu insera un `Case` decât dac
 - Dacă mai multe coduri din tabel au aceeași tratare exactă, poți grupa: `Case 3021, 3167`.
 - Codul exact returnat de Access pentru "anulare de utilizator" variază între versiuni/acțiuni (2001 vs 2501) — verifică ce apare de fapt în alte rutine din același proiect înainte să presupui unul anume.
 - Aceste propuneri se prezintă utilizatorului înainte de aplicare (vezi Pasul 5 din SKILL.md) — nu se inserează tacit.
+- La aplicare, comentează atât semnificația codului (coloana "Nume / descriere") cât și motivul tratării alese (coloana "Tratare recomandată" adaptată la rutina concretă) — vezi formatul exact cerut în Pasul 5 din SKILL.md.
