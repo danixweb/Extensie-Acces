@@ -232,6 +232,23 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
     return { uri, text: entry.text, readonly: entry.readonly };
   }
 
+  /**
+   * Raw, unparsed SaveAsText design section (Begin/End property blocks) for a Form/Report,
+   * loading it if needed. When the object has a code-behind module this is `entry.header`
+   * (everything ahead of the code, cached at load time); when it has none (HasModule=False),
+   * `loadEntry` never split anything off and the whole export lives in `entry.text` instead.
+   */
+  async getDesignSection(
+    db: OpenDatabase,
+    category: Category,
+    name: string,
+    timeoutMs?: number,
+  ): Promise<string> {
+    const uri = await this.resolveUri(db, category, name, timeoutMs);
+    const entry = await this.ensureEntry(uri, timeoutMs);
+    return entry.header ?? entry.text;
+  }
+
   /** Drops the cached entry for one object, forcing a fresh read next time it's touched. */
   invalidateOne(uri: vscode.Uri): void {
     if (this.entries.delete(uri.toString())) {

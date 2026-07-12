@@ -17,6 +17,7 @@
   "cmd.revealAiMirror": "Deschide folderul oglindă AI",
   "cmd.remirror": "Reoglindește complet toate obiectele",
   "cmd.compactDatabase": "Compactează și repară baza de date",
+  "cmd.exportHtmlMockup": "Exportă ca mockup HTML",
   "cfg.backupBeforeWrite": "Creează o copie de siguranță a fișierului .accdb înainte de fiecare scriere.",
   "cfg.backupOnOpen": "Creează o copie de siguranță cu timestamp a fișierului .accdb la deschidere, marcând începutul unei sesiuni de lucru (pe lângă backup-urile per-scriere).",
   "cfg.backupCount": "Câte copii de siguranță se păstrează per bază de date (cele mai vechi se șterg).",

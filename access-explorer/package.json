@@ -133,6 +133,12 @@
         "title": "%cmd.selectForAi%",
         "category": "Access",
         "icon": "$(sparkle)"
+      },
+      {
+        "command": "accessExplorer.exportHtmlMockup",
+        "title": "%cmd.exportHtmlMockup%",
+        "category": "Access",
+        "icon": "$(preview)"
       }
     ],
     "menus": {
@@ -148,6 +154,11 @@
           "command": "accessExplorer.selectForAi",
           "when": "resourceScheme == accessdb",
           "group": "9_cutcopypaste@10"
+        },
+        {
+          "command": "accessExplorer.exportHtmlMockup",
+          "when": "resourceScheme == accessdb && resourcePath =~ /\\.(form|report)\\.txt$/i",
+          "group": "9_cutcopypaste@11"
         }
       ],
       "editor/title": [
@@ -155,6 +166,11 @@
           "command": "accessExplorer.selectForAi",
           "when": "resourceScheme == accessdb",
           "group": "navigation@10"
+        },
+        {
+          "command": "accessExplorer.exportHtmlMockup",
+          "when": "resourceScheme == accessdb && resourcePath =~ /\\.(form|report)\\.txt$/i",
+          "group": "navigation@11"
         }
       ],
       "view/title": [
@@ -214,6 +230,11 @@
           "command": "accessExplorer.compactDatabase",
           "when": "view == accessExplorer.tree && viewItem == database",
           "group": "9_backups@5"
+        },
+        {
+          "command": "accessExplorer.exportHtmlMockup",
+          "when": "view == accessExplorer.tree && viewItem =~ /^object:(Forms|Reports)$/",
+          "group": "9_backups@1"
         }
       ],
       "commandPalette": [
@@ -248,6 +269,10 @@
         {
           "command": "accessExplorer.selectForAi",
           "when": "resourceScheme == accessdb"
+        },
+        {
+          "command": "accessExplorer.exportHtmlMockup",
+          "when": "resourceScheme == accessdb && resourcePath =~ /\\.(form|report)\\.txt$/i"
         }
       ]
     },

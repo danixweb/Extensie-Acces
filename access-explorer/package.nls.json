@@ -17,6 +17,7 @@
   "cmd.revealAiMirror": "Open AI Mirror Folder",
   "cmd.remirror": "Re-mirror All Objects for AI Tools",
   "cmd.compactDatabase": "Compact and Repair Database",
+  "cmd.exportHtmlMockup": "Export as HTML Mockup",
   "cfg.backupBeforeWrite": "Create a backup copy of the .accdb file before every write.",
   "cfg.backupOnOpen": "Create a timestamped backup copy of the .accdb file when it is opened, marking the start of a work session (in addition to the per-write backups).",
   "cfg.backupCount": "How many backup copies to keep per database (oldest are deleted).",

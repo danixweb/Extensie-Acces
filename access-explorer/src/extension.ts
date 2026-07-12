@@ -8,9 +8,11 @@ import { BackupManager } from './backup';
 import { AccessBridge } from './bridge';
 import { describeError } from './errors';
 import { AccessFsProvider } from './fsProvider';
+import { parseDesignText } from './formDesignParser';
+import { generateHtml } from './htmlMockupGenerator';
 import { LinkedCredentialsManager } from './linkedCredentials';
 import { initLogger, log } from './logger';
-import { Category, DatabaseRegistry, dbKeyFor, OpenDatabase, SCHEME } from './model';
+import { Category, DatabaseRegistry, dbKeyFor, encodeFsName, OpenDatabase, parseUri, SCHEME } from './model';
 import { AccessDbRedirectEditorProvider } from './redirectEditorProvider';
 import { AccessTreeProvider, TreeNode } from './tree';
 import { VbaUnlockManager } from './vbaUnlock';
@@ -145,6 +147,77 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     registerSelectForAi(),
+
+    vscode.commands.registerCommand('accessExplorer.exportHtmlMockup', async (node?: TreeNode) => {
+      const target = resolveFormOrReportTarget(node);
+      if (!target) {
+        void vscode.window.showErrorMessage(
+          vscode.l10n.t('Open a Form or Report first, or run this from its item in the tree.'),
+        );
+        return;
+      }
+      await exportHtmlMockup(target.db, target.category, target.name);
+    }),
+  );
+}
+
+/** Resolves the Form/Report to export either from a tree selection or the active accessdb: editor. */
+function resolveFormOrReportTarget(
+  node?: TreeNode,
+): { db: OpenDatabase; category: Category; name: string } | undefined {
+  if (node && node.kind === 'object') {
+    return { db: node.db, category: node.category, name: node.name };
+  }
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.document.uri.scheme !== SCHEME) {
+    return undefined;
+  }
+  try {
+    const { key, category, name } = parseUri(editor.document.uri);
+    const db = registry.get(key);
+    return db ? { db, category, name } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Generates a self-contained HTML mockup of a Form/Report's design and opens it in the browser. */
+async function exportHtmlMockup(db: OpenDatabase, category: Category, name: string): Promise<void> {
+  if (category !== 'Forms' && category !== 'Reports') {
+    void vscode.window.showErrorMessage(
+      vscode.l10n.t('HTML mockup export only works on Forms and Reports.'),
+    );
+    return;
+  }
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: vscode.l10n.t('Generating HTML mockup for {0}…', name),
+    },
+    async () => {
+      try {
+        const raw = await fsProvider.getDesignSection(db, category, name);
+        const parsed = parseDesignText(raw);
+        if (!parsed) {
+          void vscode.window.showErrorMessage(
+            vscode.l10n.t(
+              'Could not recognize the design section for {0} — its export format may differ from what this command expects.',
+              name,
+            ),
+          );
+          return;
+        }
+        const html = generateHtml(parsed, name);
+        const dir = path.join(mirror.mirrorDirFor(db), category);
+        await fs.mkdir(dir, { recursive: true });
+        const outPath = path.join(dir, encodeFsName(name) + '.mockup.html');
+        await fs.writeFile(outPath, html, 'utf8');
+        void vscode.env.openExternal(vscode.Uri.file(outPath));
+        void vscode.window.showInformationMessage(vscode.l10n.t('HTML mockup written to {0}', outPath));
+      } catch (err) {
+        void vscode.window.showErrorMessage(describeError(err));
+      }
+    },
   );
 }
 
