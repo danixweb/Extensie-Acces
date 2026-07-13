@@ -40,7 +40,7 @@ try {
     # Access survives after this script's COM client disconnects, instead of auto-quitting.
     try { $app.UserControl = $isVisible } catch { }
 
-    $app.OpenCurrentDatabase($DbPath, $false)
+    Open-DatabaseWithStartupBypass $app $DbPath
     $db = $app.CurrentDb()
     Connect-LinkedTables $db $creds | Out-Null
 
@@ -62,6 +62,7 @@ try {
 
         $json = $rows | ConvertTo-Json -Depth 5
         if ($rows.Count -eq 1) { $json = "[$json]" }  # ConvertTo-Json drops the array wrapper for a single object
+        if ($rows.Count -eq 0) { $json = '[]' }       # ...and returns $null (empty output) for an empty array
         if ($OutFile) {
             $json | Out-File -LiteralPath $OutFile -Encoding utf8
         } else {

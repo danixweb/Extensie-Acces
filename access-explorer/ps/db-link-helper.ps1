@@ -7,6 +7,59 @@ $dbOpenDynaset = 2
 $dbOpenSnapshot = 4
 $dbSeeChanges = 512
 
+if (-not ('DbLink.Win32' -as [type])) {
+    Add-Type -Name Win32 -Namespace DbLink -MemberDefinition @'
+[DllImport("user32.dll")]
+public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, System.UIntPtr dwExtraInfo);
+'@
+}
+
+# Opens the database SHARED while simulating a held Shift key (the classic AllowBypassKey
+# trick, same as access-bridge.ps1's open) so the application's Startup form / AutoExec
+# macro never runs. These scripts run Access hidden — a modal Startup form (login) or a
+# MsgBox in a Form_Load would otherwise block COM and leave an orphaned MSACCESS.EXE.
+function Open-DatabaseWithStartupBypass($app, [string]$path) {
+    # The Shift trick is silently IGNORED when AllowBypassKey=False in the database —
+    # ensure it is True first, through DAO (no Access UI, so nothing from the app runs).
+    # Reuse $app.DBEngine (the SAME engine Access itself will use) rather than spinning up a
+    # second DAO.DBEngine COM object on the same file — access-bridge.ps1 saw the latter leave
+    # a residual Jet/ACE-level lock that made a later CompactRepair fail with "already opened
+    # by user ... on machine ...", even after the extra handle was explicitly closed/released.
+    try {
+        $dbDao = $app.DBEngine.OpenDatabase($path)
+        try {
+            $prop = $dbDao.Properties.Item('AllowBypassKey')
+            if (-not $prop.Value) { $prop.Value = $true }
+        } catch {
+            $dbDao.Properties.Append($dbDao.CreateProperty('AllowBypassKey', 1, $true))  # 1 = dbBoolean
+        }
+        $dbDao.Close()
+        [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($dbDao)
+    } catch {
+        Write-Warning "could not ensure AllowBypassKey on '$path': $($_.Exception.Message)"
+    }
+    $VK_SHIFT = 0x10
+    $KEYEVENTF_KEYUP = 0x2
+    [DbLink.Win32]::keybd_event($VK_SHIFT, 0, 0, [System.UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 100
+    try {
+        $app.OpenCurrentDatabase($path, $false)
+    } finally {
+        [DbLink.Win32]::keybd_event($VK_SHIFT, 0, $KEYEVENTF_KEYUP, [System.UIntPtr]::Zero)
+    }
+    # Belt and braces: if the Startup form still ran, close every open form so no modal
+    # window can block later COM calls or Quit. acForm = 2, acSaveNo = 2.
+    try {
+        $guard = 0
+        while ($app.Forms.Count -gt 0 -and $guard -lt 20) {
+            $app.DoCmd.Close(2, $app.Forms.Item(0).Name, 2)
+            $guard++
+        }
+    } catch {
+        Write-Warning "could not close startup form(s): $($_.Exception.Message)"
+    }
+}
+
 function Get-LinkCredentials([string]$credentialsFile) {
     if (-not (Test-Path -LiteralPath $credentialsFile)) {
         throw "Credentials file not found: $credentialsFile (copy db-credentials.local.json.example and fill in real values)"

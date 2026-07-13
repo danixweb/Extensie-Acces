@@ -1,0 +1,674 @@
+Version =20
+VersionRequired =20
+Checksum =1368605266
+Begin Form
+    RecordSelectors = NotDefault
+    AutoCenter = NotDefault
+    NavigationButtons = NotDefault
+    DividingLines = NotDefault
+    DefaultView =0
+    PictureAlignment =2
+    DatasheetGridlinesBehavior =3
+    GridY =10
+    Width =20466
+    DatasheetFontHeight =10
+    ItemSuffix =24
+    Right =24690
+    Bottom =12060
+    DatasheetGridlinesColor =12632256
+    RecSrcDt = Begin
+        0x22ff915f53fee340
+    End
+    GUID = Begin
+        0x2ae9c2f8eba25442b6edb00da10bac1c
+    End
+    NameMap = Begin
+        0x0acc0e5500000000aae5ac390082f642851773e6c90ea65e000000001d33779f ,
+        0x946ee54000000000000000003000300031002000460049005300410020004300 ,
+        0x41004c00430055004c00410054004f005200000000000000ce7507f1ab57c04d ,
+        0x83f28afcfc70e90100000000525fd1477431e54000000000000000004d004900 ,
+        0x4a004c004f00410043004500000000000000fcc9f38f518e634bb5a775b0b4c4 ,
+        0xc66700000000b3cb195e772ae440000000000000000041004d0050004c004100 ,
+        0x530041004d0045004e0054004500000000000000e70f33a5b07be74e9f1ed640 ,
+        0xfeec3ea500000000ead1195e772ae44000000000000000004700520055005000 ,
+        0x45000000000000004ed795516464714cad1889468fcf5bcb00000000a46b4d65 ,
+        0x926ee54000000000000000005300630075006c006500000000000000b64ab3ce ,
+        0xd2be874891c7b0e3565ced2407000000ce7507f1ab57c04d83f28afcfc70e901 ,
+        0x440045004e0055004d0049005200450000000000000087654ced8dfe1a41b20e ,
+        0x34b8ade0b37807000000fcc9f38f518e634bb5a775b0b4c4c667440045004e00 ,
+        0x55004d004900520045000000000000002fc37a47362edf49afea1a424529e2ff ,
+        0x07000000ce7507f1ab57c04d83f28afcfc70e9014e0055004d00410052005f00 ,
+        0x49004e00560045004e0054004100520000000000000062e1c2236c03a64d96b1 ,
+        0x35888760764b07000000ce7507f1ab57c04d83f28afcfc70e901430041005200 ,
+        0x410043005400450052004900530054004900430049000000000000003d0fc951 ,
+        0x6e83e94b8ae7b1156eb6c5d007000000ce7507f1ab57c04d83f28afcfc70e901 ,
+        0x49004400000000000000b9bd07f89fd7a64a844ba378f2b0fb2e07000000ce75 ,
+        0x07f1ab57c04d83f28afcfc70e901490044005f00470052005500500041000000 ,
+        0x000000001c0bcaac1cbb7e48a9795802c7e4a5a3070000004ed795516464714c ,
+        0xad1889468fcf5bcb440045004e0055004d004900520045000000000000003c56 ,
+        0x459d9b7e9247bcc7666ffff7f53407000000ce7507f1ab57c04d83f28afcfc70 ,
+        0xe90141004d0050004c004100530041004d0045004e005400000000000000e68f ,
+        0x8973da875044a6ac80c03756f35707000000fcc9f38f518e634bb5a775b0b4c4 ,
+        0xc667490044004c004f004300000000000000fcb79b441c4485489b31137272bb ,
+        0xe80607000000e70f33a5b07be74e9f1ed640feec3ea549004400200047005200 ,
+        0x5500500041000000000000009d09516da75bf243a3b8c3ad3ed7809d07000000 ,
+        0x4ed795516464714cad1889468fcf5bcb41004d0050004c004100530041004d00 ,
+        0x45004e0054000000000000006fcbee1bba2bf84ab02c42e514d9ef8a07000000 ,
+        0xe70f33a5b07be74e9f1ed640feec3ea5440045004e0055004d00490052004500 ,
+        0x5f00470052005500500041000000000000003d0fc9516e83e94b8ae7b1156eb6 ,
+        0xc5d007000000aae5ac390082f642851773e6c90ea65e49004400000000000000 ,
+        0x3c56459d9b7e9247bcc7666ffff7f53407000000aae5ac390082f642851773e6 ,
+        0xc90ea65e41004d0050004c004100530041004d0045004e005400000000000000 ,
+        0x2fc37a47362edf49afea1a424529e2ff07000000aae5ac390082f642851773e6 ,
+        0xc90ea65e4e0055004d00410052005f0049004e00560045004e00540041005200 ,
+        0x00000000000062e1c2236c03a64d96b135888760764b07000000aae5ac390082 ,
+        0xf642851773e6c90ea65e43004100520041004300540045005200490053005400 ,
+        0x490043004900000000000000961d627bd7651041a1e93aa6cebc07c301000000 ,
+        0xda74c91e8e31e540000000000000000030003000310020005300630075006c00 ,
+        0x6500200073007500620066006f0072006d000000000000000000000000000000 ,
+        0x00000000000000000c000000050000000000000000000000000000000000
+    End
+    RecordSource ="001 FISA CALCULATOR"
+    Caption ="Operare continut"
+    DatasheetFontName ="Arial"
+    PrtMip = Begin
+        0x6801000068010000680100006801000000000000201c0000e010000001000000 ,
+        0x010000006801000000000000a10700000100000001000000
+    End
+    PrtDevMode = Begin
+        0x004f27000c50270012000000884d2700989a85610c5027009863d00812000000 ,
+        0x010406059c0034030fdf0000010009009a0b3408000001000700580201000100 ,
+        0x58020000000000007c63d008dc4d270023420a019863d0082a420a01f5783fb9 ,
+        0xf44f270080630000000000000000000000000000000000000000000000000000 ,
+        0x000000000000000000000000000000000000000000000000000000005344444d ,
+        0x03050000030500004850204c617365724a657420313032300000000000000000 ,
+        0x0000000000000000000000000000000000000000010000000000000001000000 ,
+        0x0000000000000000010000000900000009000000090000000900000009000000 ,
+        0x0900000009000000090000000900000009000000090000000900000009000000 ,
+        0x090000000900000009000000090000000000000001000000010000001a040000 ,
+        0x0000000000000000000000000f0000002d000000000000000000000001000000 ,
+        0x000000000000000080808000ff000000ffff000000ff000000ffff000000ff00 ,
+        0xff00ff0000000000000000000000000000000000280000006400000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x00000000000000000000000000000000de030000de0300000000000000000000 ,
+        0x0080000000000000000000000100000000000000000000000000000000000000 ,
+        0x000000000000000000000000000000000000000000000000000000000080ff00 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x00000000000000000000000000000000
+    End
+    PrtDevNames = Begin
+        0x080019002a000100000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000055534230303100000000000000000000000000000000 ,
+        0x0000000000
+    End
+    OnLoad ="[Event Procedure]"
+    FilterOnLoad =0
+    AllowLayoutView =0
+    DatasheetGridlinesColor12 =12632256
+    PrtDevModeW = Begin
+        0x000028000a0000000cab2800da02000000b51b015001090664802800d0180906 ,
+        0xc0aa28007f0000000cab280009000000e47f28008c8228000c54900100000000 ,
+        0x01040605dc0034030fdf0000010009009a0b3408000001000700580201000100 ,
+        0x5802000000000000c400090601000000611500000a0000000c000000d0180906 ,
+        0xd0180906cb18090600000000000000000000090600000001b07f2800c0aa2800 ,
+        0x2084280015e10000000000000000000000000000000000000000000000000000 ,
+        0x000000000000000000000000000000000000000000000000000000005344444d ,
+        0x03050000030500004850204c617365724a657420313032300000000000000000 ,
+        0x0000000000000000000000000000000000000000010000000000000001000000 ,
+        0x0000000000000000010000000900000009000000090000000900000009000000 ,
+        0x0900000009000000090000000900000009000000090000000900000009000000 ,
+        0x090000000900000009000000090000000000000001000000010000001a040000 ,
+        0x0000000000000000000000000f0000002d000000000000000000000001000000 ,
+        0x000000000000000080808000ff000000ffff000000ff000000ffff000000ff00 ,
+        0xff00ff0000000000000000000000000000000000280000006400000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x00000000000000000000000000000000de030000de0300000000000000000000 ,
+        0x0080000000000000000000000100000000000000000000000000000000000000 ,
+        0x000000000000000000000000000000000000000000000000000000000080ff00 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x00000000000000000000000000000000
+    End
+    PrtDevNamesW = Begin
+        0x0400150026000100000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000005500530042003000300031000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000
+    End
+    NoSaveCTIWhenDisabled =1
+    Begin
+        Begin Label
+            BackStyle =0
+            BackColor =-2147483633
+            ForeColor =-2147483630
+        End
+        Begin Rectangle
+            SpecialEffect =3
+            BackStyle =0
+            BorderLineStyle =0
+            Width =850
+            Height =850
+        End
+        Begin Line
+            BorderLineStyle =0
+            SpecialEffect =3
+            Width =1701
+        End
+        Begin Image
+            BackStyle =0
+            OldBorderStyle =0
+            BorderLineStyle =0
+            PictureAlignment =2
+            Width =1701
+            Height =1701
+        End
+        Begin CommandButton
+            Width =1701
+            Height =283
+            FontSize =8
+            FontWeight =400
+            FontName ="MS Sans Serif"
+            BorderLineStyle =0
+        End
+        Begin OptionButton
+            SpecialEffect =2
+            BorderLineStyle =0
+            LabelX =230
+            LabelY =-30
+        End
+        Begin CheckBox
+            SpecialEffect =2
+            BorderLineStyle =0
+            LabelX =230
+            LabelY =-30
+        End
+        Begin OptionGroup
+            SpecialEffect =3
+            BorderLineStyle =0
+            Width =1701
+            Height =1701
+        End
+        Begin BoundObjectFrame
+            SpecialEffect =2
+            OldBorderStyle =0
+            BorderLineStyle =0
+            BackStyle =0
+            Width =4536
+            Height =2835
+            LabelX =-1701
+        End
+        Begin TextBox
+            SpecialEffect =2
+            BorderLineStyle =0
+            Width =1701
+            LabelX =-1701
+            BackColor =-2147483643
+            ForeColor =-2147483640
+        End
+        Begin ListBox
+            SpecialEffect =2
+            BorderLineStyle =0
+            Width =1701
+            Height =1417
+            LabelX =-1701
+            BackColor =-2147483643
+            ForeColor =-2147483640
+        End
+        Begin ComboBox
+            SpecialEffect =2
+            BorderLineStyle =0
+            Width =1701
+            LabelX =-1701
+            BackColor =-2147483643
+            ForeColor =-2147483640
+        End
+        Begin Subform
+            SpecialEffect =2
+            BorderLineStyle =0
+            Width =1701
+            Height =1701
+        End
+        Begin UnboundObjectFrame
+            SpecialEffect =2
+            OldBorderStyle =1
+            Width =4536
+            Height =2835
+        End
+        Begin ToggleButton
+            Width =283
+            Height =283
+            FontSize =8
+            FontWeight =400
+            FontName ="MS Sans Serif"
+            BorderLineStyle =0
+        End
+        Begin Tab
+            BackStyle =0
+            Width =5103
+            Height =3402
+            BorderLineStyle =0
+        End
+        Begin FormHeader
+            Height =1870
+            BackColor =8222053
+            Name ="FormHeader"
+            OnClick ="[Event Procedure]"
+            GUID = Begin
+                0x5ec5c5f66b40ba4fabd8ef42240330dc
+            End
+            BackThemeColorIndex =3
+            BackShade =50.0
+            Begin
+                Begin ComboBox
+                    LimitToList = NotDefault
+                    OverlapFlags =93
+                    ColumnCount =6
+                    ListRows =33
+                    ListWidth =9072
+                    Left =1926
+                    Top =1190
+                    Width =2443
+                    Height =397
+                    ColumnOrder =0
+                    BoundColumn =4
+                    ColumnInfo ="\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"10\";\"200\""
+                    GUID = Begin
+                        0xf298d95e9031b540a3f1bbc4e8b1cd93
+                    End
+                    Name ="Combo14"
+                    RowSourceType ="Table/Query"
+                    RowSource ="SELECT MIJLOACE.DENUMIRE, AMPLASAMENTE.DENUMIRE, MIJLOACE.NUMAR_INVENTAR, MIJLOA"
+                        "CE.CARACTERISTICI, MIJLOACE.ID, MIJLOACE.ID_GRUPA, Count(Scule.DENUMIRE) AS Gasi"
+                        "te FROM ((MIJLOACE LEFT JOIN AMPLASAMENTE ON MIJLOACE.AMPLASAMENT = AMPLASAMENTE"
+                        ".IDLOC) LEFT JOIN GRUPE ON MIJLOACE.ID_GRUPA = GRUPE.[ID GRUPA]) LEFT JOIN Scule"
+                        " ON MIJLOACE.ID = Scule.AMPLASAMENT GROUP BY MIJLOACE.DENUMIRE, AMPLASAMENTE.DEN"
+                        "UMIRE, MIJLOACE.NUMAR_INVENTAR, MIJLOACE.CARACTERISTICI, MIJLOACE.ID, MIJLOACE.I"
+                        "D_GRUPA, MIJLOACE.DENUMIRE HAVING (((Count(Scule.DENUMIRE))>0)) ORDER BY AMPLASA"
+                        "MENTE.DENUMIRE, MIJLOACE.DENUMIRE;"
+                    ColumnWidths ="3402;1701;1445;1134;1134;1134"
+                    BeforeUpdate ="[Event Procedure]"
+                    AfterUpdate ="[Event Procedure]"
+                    BaseInfo ="\"SELECT MIJLOACE.DENUMIRE, AMPLASAMENTE.DENUMIRE, MIJLOACE.NUMAR_INVENTAR, MIJL"
+                        "OACE.CARACTERISTICI, MIJLOACE.ID, MIJLOACE.ID_GRUPA, Count(Scule.DENUMIRE) AS Ga"
+                        "site FROM ((MIJLOACE LEFT JOIN AMPLASAMENTE ON MIJLOACE.AMPLASAMENT = AMPLASAMEN"
+                        "TE.IDLOC) LEFT JOIN GRUPE ON MIJLOACE.ID_GRUPA = GRUPE.[ID GRUPA]) LEFT JOIN Scu"
+                        "le ON MIJLOACE.ID = Scule.AMPLASAMENT GROUP BY MIJLOACE.DENUMIRE, AMPLASAMENTE.D"
+                        "ENUMIRE, MIJLOACE.NUMAR_INVENTAR, MIJLOACE.CARACTERISTICI, MIJLOACE.ID, MIJLOACE"
+                        ".ID_GRUPA, MIJLOACE.DENUMIRE HAVIN\";\";\";\"AMPLASAMENTE\";\"GRUPE\";\"Scule\";"
+                        "\"\""
+
+                    Begin
+                        Begin Label
+                            OverlapFlags =93
+                            Left =396
+                            Top =1190
+                            Width =1320
+                            Height =405
+                            FontWeight =700
+                            ForeColor =16777215
+                            Name ="Label15"
+                            Caption ="DENUMIRE\015\012DULAP"
+                            GUID = Begin
+                                0x050c725ece2f24489035896186eef012
+                            End
+                        End
+                    End
+                End
+                Begin ComboBox
+                    LimitToList = NotDefault
+                    OverlapFlags =93
+                    ColumnCount =6
+                    ListRows =33
+                    ListWidth =9072
+                    Left =5942
+                    Top =1133
+                    Width =1153
+                    Height =397
+                    ColumnOrder =1
+                    TabIndex =1
+                    ColumnInfo ="\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"\";\"4\";\"4\""
+                    GUID = Begin
+                        0x4fa8d1d3ac6b6e42b7cd96e394b60bba
+                    End
+                    Name ="Combo16"
+                    RowSourceType ="Table/Query"
+                    RowSource ="SELECT MIJLOACE.NUMAR_INVENTAR, MIJLOACE.DENUMIRE, AMPLASAMENTE.DENUMIRE, MIJLOA"
+                        "CE.CARACTERISTICI, MIJLOACE.ID FROM ((MIJLOACE LEFT JOIN AMPLASAMENTE ON MIJLOAC"
+                        "E.AMPLASAMENT = AMPLASAMENTE.IDLOC) LEFT JOIN GRUPE ON MIJLOACE.ID_GRUPA = GRUPE"
+                        ".[ID GRUPA]) LEFT JOIN Scule ON MIJLOACE.ID = Scule.AMPLASAMENT GROUP BY MIJLOAC"
+                        "E.NUMAR_INVENTAR, MIJLOACE.DENUMIRE, AMPLASAMENTE.DENUMIRE, MIJLOACE.CARACTERIST"
+                        "ICI, MIJLOACE.ID, GRUPE.DENUMIRE_GRUPA HAVING (((GRUPE.DENUMIRE_GRUPA) Like 'dUL"
+                        "*' Or (GRUPE.DENUMIRE_GRUPA) Like 'RAF*' Or (GRUPE.DENUMIRE_GRUPA) Like 'mese*')"
+                        ") ORDER BY MIJLOACE.NUMAR_INVENTAR, MIJLOACE.DENUMIRE, AMPLASAMENTE.DENUMIRE;"
+                    ColumnWidths ="567;1701;1448;1134;2268;1134"
+                    BeforeUpdate ="[Event Procedure]"
+                    AfterUpdate ="[Event Procedure]"
+
+                    Begin
+                        Begin Label
+                            OverlapFlags =93
+                            Left =4478
+                            Top =1133
+                            Width =1185
+                            Height =405
+                            FontWeight =700
+                            ForeColor =16777215
+                            Name ="Label17"
+                            Caption ="INVENTAR\015\012DULAP"
+                            GUID = Begin
+                                0x190c9f3863855d4e853881ece8e0ae5f
+                            End
+                        End
+                    End
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =4138
+                    Top =113
+                    Width =6123
+                    Height =510
+                    FontSize =24
+                    ForeColor =16777215
+                    Name ="Label21"
+                    Caption ="CONTINUT DULAPURI"
+                    GUID = Begin
+                        0xb597ac98830cd3429c4c29d1e48501b0
+                    End
+                    ForeThemeColorIndex =1
+                End
+                Begin OptionGroup
+                    OverlapFlags =247
+                    Left =283
+                    Top =913
+                    Width =7367
+                    Height =797
+                    ColumnOrder =2
+                    TabIndex =2
+                    Name ="Frame22"
+                    GUID = Begin
+                        0x606f946067bdbb448a76d7d31823817c
+                    End
+
+                    Begin
+                        Begin Label
+                            BackStyle =1
+                            OverlapFlags =247
+                            Left =403
+                            Top =793
+                            Width =1200
+                            Height =240
+                            BackColor =8222053
+                            ForeColor =16777215
+                            Name ="Label23"
+                            Caption ="Cautare locatie"
+                            GUID = Begin
+                                0x60c9a2cc44953546b0e7f578c60d6cd7
+                            End
+                            BackThemeColorIndex =3
+                            BackShade =50.0
+                        End
+                    End
+                End
+            End
+        End
+        Begin Section
+            CanGrow = NotDefault
+            Height =1814
+            BackColor =8222053
+            Name ="Detail"
+            GUID = Begin
+                0xca3dcf2d099f37408a86642188b34cfb
+            End
+            BackThemeColorIndex =3
+            BackShade =50.0
+            Begin
+                Begin TextBox
+                    Visible = NotDefault
+                    OverlapFlags =85
+                    Left =1620
+                    Top =396
+                    Width =900
+                    Height =255
+                    Name ="IDMIJLOC"
+                    ControlSource ="ID"
+                    GUID = Begin
+                        0x32d9716cd5af2e459b6df452c9a035a7
+                    End
+
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Top =396
+                            Width =1560
+                            Height =255
+                            ForeColor =16777215
+                            Name ="IDMIJLOC Label"
+                            Caption ="IDMIJLOC"
+                            EventProcPrefix ="IDMIJLOC_Label"
+                            GUID = Begin
+                                0x077dde23c369954fabc7a9c188cf8ae2
+                            End
+                            ForeThemeColorIndex =1
+                        End
+                    End
+                End
+                Begin TextBox
+                    Visible = NotDefault
+                    OverlapFlags =93
+                    Left =1733
+                    Top =907
+                    Width =4215
+                    Height =360
+                    TabIndex =1
+                    Name ="AMPLASAMENT"
+                    ControlSource ="AMPLASAMENT"
+                    GUID = Begin
+                        0xadeeb4d20171d948b725124254bfa977
+                    End
+
+                    LayoutCachedLeft =1733
+                    LayoutCachedTop =907
+                    LayoutCachedWidth =5948
+                    LayoutCachedHeight =1267
+                    Begin
+                        Begin Label
+                            Visible = NotDefault
+                            OverlapFlags =93
+                            Left =113
+                            Top =1012
+                            Width =1560
+                            Height =255
+                            FontWeight =700
+                            ForeColor =16777215
+                            Name ="AMPLASAMENT Label"
+                            Caption ="AMPLASAMENT"
+                            EventProcPrefix ="AMPLASAMENT_Label"
+                            GUID = Begin
+                                0x89b0c80d6f8f8641bb6158bf58ecb231
+                            End
+                            LayoutCachedLeft =113
+                            LayoutCachedTop =1012
+                            LayoutCachedWidth =1673
+                            LayoutCachedHeight =1267
+                        End
+                    End
+                End
+                Begin TextBox
+                    OverlapFlags =85
+                    Left =12925
+                    Top =453
+                    Width =1905
+                    Height =405
+                    FontSize =14
+                    TabIndex =2
+                    Name ="NUMAR_INVENTAR"
+                    ControlSource ="NUMAR_INVENTAR"
+                    GUID = Begin
+                        0xff28e29cb66ae344abf6794c3e7623b4
+                    End
+
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =12812
+                            Top =113
+                            Width =2250
+                            Height =255
+                            FontWeight =700
+                            ForeColor =16777215
+                            Name ="NUMAR_INVENTAR Label"
+                            Caption ="NUMAR_INVENTAR"
+                            EventProcPrefix ="NUMAR_INVENTAR_Label"
+                            GUID = Begin
+                                0xbd62db4205862b4faaf7b7fccaf8d959
+                            End
+                        End
+                    End
+                End
+                Begin TextBox
+                    EnterKeyBehavior = NotDefault
+                    ScrollBars =2
+                    OverlapFlags =247
+                    Left =2211
+                    Top =1190
+                    Width =12375
+                    Height =450
+                    FontSize =14
+                    TabIndex =3
+                    Name ="CARACTERISTICI"
+                    ControlSource ="CARACTERISTICI"
+                    GUID = Begin
+                        0x32c00769e6ab1f4a9bfc5ed528b9a4fc
+                    End
+
+                    Begin
+                        Begin Label
+                            OverlapFlags =223
+                            Left =170
+                            Top =1247
+                            Width =2025
+                            Height =450
+                            FontWeight =700
+                            ForeColor =16777215
+                            Name ="CARACTERISTICI Label"
+                            Caption ="CARACTERISTICI\015\012AMPLASAMENT"
+                            EventProcPrefix ="CARACTERISTICI_Label"
+                            GUID = Begin
+                                0x960e836478b1e644bf37db6ac1bfe84d
+                            End
+                        End
+                    End
+                End
+                Begin TextBox
+                    EnterKeyBehavior = NotDefault
+                    ScrollBars =2
+                    OverlapFlags =247
+                    TextAlign =2
+                    Left =3604
+                    Top =226
+                    Width =9150
+                    Height =735
+                    FontSize =18
+                    TabIndex =4
+                    Name ="DENUMIRE"
+                    ControlSource ="MIJLOACE.DENUMIRE"
+                    GUID = Begin
+                        0xda743aa3a17774408ef7f9ccf001b2fd
+                    End
+
+                End
+            End
+        End
+        Begin FormFooter
+            CanGrow = NotDefault
+            Height =8333
+            BackColor =8222053
+            Name ="FormFooter"
+            GUID = Begin
+                0x6142e26f7e440d48a4a6296a06efc4e2
+            End
+            BackThemeColorIndex =3
+            BackShade =50.0
+            Begin
+                Begin Subform
+                    OverlapFlags =85
+                    OldBorderStyle =0
+                    SpecialEffect =0
+                    Top =404
+                    Width =15690
+                    Height =7875
+                    Name ="001 Scule subform"
+                    SourceObject ="Form.001 Scule subform"
+                    LinkChildFields ="AMPLASAMENT"
+                    LinkMasterFields ="ID"
+                    EventProcPrefix ="Ctl001_Scule_subform"
+                    GUID = Begin
+                        0xa2f8de56f6d6e8418778936250953c3d
+                    End
+
+                    LayoutCachedTop =404
+                    LayoutCachedWidth =15690
+                    LayoutCachedHeight =8279
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =4
+                            Width =1755
+                            Height =240
+                            FontWeight =700
+                            ForeColor =16777215
+                            Name ="001 Scule subform Label"
+                            Caption ="LISTA CONTINUT"
+                            EventProcPrefix ="Ctl001_Scule_subform_Label"
+                            GUID = Begin
+                                0x864a29cda11a4d4d854f3a14149f54e2
+                            End
+                        End
+                    End
+                End
+            End
+        End
+    End
+End
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Private Sub Combo14_AfterUpdate()
+    Me.RecordsetClone.FindFirst "[ID] = " & Me![Combo14]
+    Me.Bookmark = Me.RecordsetClone.Bookmark
+End Sub
+
+Private Sub Combo16_AfterUpdate()
+    Me.RecordsetClone.FindFirst "[NUMAR_INVENTAR] = " & Me![Combo16]
+    Me.Bookmark = Me.RecordsetClone.Bookmark
+End Sub
+
+Private Sub Form_Load()
+DoCmd.Maximize
+End Sub

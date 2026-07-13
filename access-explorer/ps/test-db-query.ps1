@@ -48,7 +48,7 @@ try {
     try { $app.UserControl = $isVisible } catch { }
 
     Write-Host "Opening $DbPath ..."
-    $app.OpenCurrentDatabase($DbPath, $false)
+    Open-DatabaseWithStartupBypass $app $DbPath
 
     $db = $app.CurrentDb()
     $relinked = Connect-LinkedTables $db $creds

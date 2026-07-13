@@ -387,7 +387,8 @@
     "build:prod": "node esbuild.mjs --production",
     "watch": "node esbuild.mjs --watch",
     "vscode:prepublish": "npm run check && npm run build:prod",
-    "package": "vsce package"
+    "package": "vsce package",
+    "test:bridge": "node test/run-tests.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

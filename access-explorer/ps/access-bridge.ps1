@@ -43,6 +43,67 @@ $script:accessPid = 0
 $script:accessHwnd = [System.IntPtr]::Zero
 $script:dbPath = $null
 $script:visibleOperations = $false
+$script:bypassStartup = $false
+$script:bypassKeyEnsuredFor = $null
+
+# Opens the database SHARED in $script:app, bypassing the Startup form / AutoExec when
+# $script:bypassStartup is set: ensures AllowBypassKey=True via DAO first (the Shift trick
+# is silently ignored otherwise), simulates a held Shift during the open, then closes any
+# form that still managed to load (e.g. a physical keypress broke the simulated Shift).
+# Every OpenCurrentDatabase in this bridge must go through here — a Startup form waiting
+# for login, or a MsgBox in a Form_Load, is a modal window that blocks all later COM ops.
+# Returns $true when the Startup form ran anyway (reported to the caller as startupRan).
+function Open-DbShared([string]$path) {
+    if (-not $script:bypassStartup) {
+        $script:app.OpenCurrentDatabase($path, $false)
+        return $false
+    }
+    # Only probe/set AllowBypassKey once per path per bridge session (e.g. not again on the
+    # reopen-after-compact) — opening a SEPARATE DAO.Database handle on a file Access.Application
+    # already has open elsewhere in this same run was observed to leave the Jet/ACE engine with a
+    # residual lock that made a later CompactRepair fail with "already opened by user ... on
+    # machine ...", even after the extra handle was explicitly Close()'d and released. Reusing
+    # $script:app.DBEngine (the SAME engine instance Access itself uses, rather than spinning up
+    # a second one via `New-Object -ComObject DAO.DBEngine`) avoids a second engine entirely.
+    if ($script:bypassKeyEnsuredFor -ne $path) {
+        try {
+            $dbDao = $script:app.DBEngine.OpenDatabase($path)
+            try {
+                $prop = $dbDao.Properties.Item('AllowBypassKey')
+                if (-not $prop.Value) { $prop.Value = $true }
+            } catch {
+                # dbBoolean = 1
+                $dbDao.Properties.Append($dbDao.CreateProperty('AllowBypassKey', 1, $true))
+            }
+            $dbDao.Close()
+            [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($dbDao)
+            $script:bypassKeyEnsuredFor = $path
+        } catch {
+            [Console]::Error.WriteLine("bridge warning: could not ensure AllowBypassKey: $($_.Exception.Message)")
+        }
+    }
+    [Bridge.Win32]::keybd_event($VK_SHIFT, 0, 0, [System.UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 100
+    try {
+        $script:app.OpenCurrentDatabase($path, $false)
+    } finally {
+        # Always release Shift, even on failure — otherwise it stays "stuck" system-wide.
+        [Bridge.Win32]::keybd_event($VK_SHIFT, 0, $KEYEVENTF_KEYUP, [System.UIntPtr]::Zero)
+    }
+    $startupRan = $false
+    try {
+        $startupRan = ($script:app.Forms.Count -gt 0)
+        $guard = 0
+        while ($script:app.Forms.Count -gt 0 -and $guard -lt 20) {
+            # acForm = 2, acSaveNo = 2
+            $script:app.DoCmd.Close(2, $script:app.Forms.Item(0).Name, 2)
+            $guard++
+        }
+    } catch {
+        [Console]::Error.WriteLine("bridge warning: could not close startup form(s): $($_.Exception.Message)")
+    }
+    return $startupRan
+}
 
 function Write-Response([hashtable]$obj) {
     $json = ($obj | ConvertTo-Json -Compress -Depth 8)
@@ -72,8 +133,19 @@ function Write-ImportText([string]$path, [string]$text, [string]$enc) {
 # Maps a caught exception to a stable error code the extension can localize.
 function Get-ErrorInfo($err) {
     $ex = $err.Exception
+    # PowerShell wraps COM failures (e.g. MethodInvocationException around a COMException
+    # from SaveAsText/LoadFromText) — the outer HResult is then a generic CLR code and the
+    # DAO/Access number lives on an inner exception. Walk the chain and prefer the first
+    # FACILITY_CONTROL (0x800A....) or class-not-registered HResult found.
     $hr = 0
-    try { $hr = $ex.HResult } catch { }
+    $cur = $ex
+    while ($null -ne $cur) {
+        $h = 0
+        try { $h = $cur.HResult } catch { }
+        if ($h -eq 0x80040154 -or $h -eq -2147221164 -or (($h -band 0xFFFF0000) -eq 0x800A0000)) { $hr = $h; break }
+        if ($hr -eq 0 -and $h -ne 0) { $hr = $h }
+        $cur = $cur.InnerException
+    }
     $num = 0
     # DAO/Access automation errors use FACILITY_CONTROL (0xA); low word = error number.
     if (($hr -band 0xFFFF0000) -eq 0x800A0000) { $num = $hr -band 0xFFFF }
@@ -142,31 +214,20 @@ function Op-Open([hashtable]$args_) {
         $script:accessPid = 0
         $script:accessHwnd = [System.IntPtr]::Zero
     }
-    # Bypass Startup/AutoExec (the classic "hold Shift while opening" trick, simulated via
-    # keybd_event) — for a code-reading/editing tool, running the app's Startup form or AutoExec
-    # macro never helps and only risks a blocking modal dialog or an app that quits itself. Has no
-    # effect at all if the database owner disabled AllowBypassKey.
-    $bypassStartup = $args_.ContainsKey('bypassStartup') -and $args_.bypassStartup
-    if ($bypassStartup) {
-        [Bridge.Win32]::keybd_event($VK_SHIFT, 0, 0, [System.UIntPtr]::Zero)
-        Start-Sleep -Milliseconds 100
-    }
-    try {
-        # $false = shared mode: coexists with the Access UI having the file open normally.
-        $script:app.OpenCurrentDatabase($path, $false)
-    } finally {
-        # Always release Shift, even on failure — otherwise it stays "stuck" system-wide.
-        if ($bypassStartup) {
-            [Bridge.Win32]::keybd_event($VK_SHIFT, 0, $KEYEVENTF_KEYUP, [System.UIntPtr]::Zero)
-        }
-    }
+    # Bypass Startup/AutoExec — for a code-reading/editing tool, running the app's Startup
+    # form or AutoExec macro never helps and only risks a blocking modal dialog (a Startup
+    # form waiting for login, a MsgBox in Form_Load) or an app that quits itself. The flag
+    # is remembered so every later reopen (compact) uses the same bypass.
+    $script:bypassStartup = $args_.ContainsKey('bypassStartup') -and $args_.bypassStartup
+    # Shared mode: coexists with the Access UI having the file open normally.
+    $startupRan = Open-DbShared $path
     $script:dbPath = $path
     # A password-locked VBA project (Tools > VBAProject Properties > Protection) is a different
     # condition from the Trust Center's "Trust access to the VBA project object model" setting —
     # reading .Protection never itself triggers the password prompt, it just reports lock state.
     $vbaProtected = $false
     try { $vbaProtected = ($script:app.VBE.ActiveVBProject.Protection -eq 1) } catch { $vbaProtected = $true }
-    return @{ accessPid = $script:accessPid; path = $path; vbaProtected = $vbaProtected }
+    return @{ accessPid = $script:accessPid; path = $path; vbaProtected = $vbaProtected; startupRan = $startupRan }
 }
 
 function Op-List {
@@ -203,6 +264,7 @@ function Op-List {
     $macros = @();  foreach ($o in $proj.AllMacros)  { $macros  += $o.Name; Clear-ComObject $o }
     $modules = @(); foreach ($o in $proj.AllModules) { $modules += $o.Name; Clear-ComObject $o }
     Clear-ComObject $proj
+    Clear-ComObject $db
 
     return @{
         tables  = @($tables  | Sort-Object)
@@ -247,7 +309,9 @@ function Op-RelinkCredentials([hashtable]$args_) {
                 $failedNames += $t.Name
             }
         }
+        Clear-ComObject $t
     }
+    Clear-ComObject $db
     if ($relinked -eq 0 -and $failedNames.Count -gt 0) {
         return @{ _error = @{
             code    = 'LINKED_AUTH_FAILED'
@@ -396,8 +460,13 @@ function Op-SaveMacro([hashtable]$args_) {
 function Op-GetQuerySql([hashtable]$args_) {
     Assert-Open
     $db = Get-Db
-    $db.QueryDefs.Refresh()
-    $sql = $db.QueryDefs($args_.name).SQL
+    $queryDefs = $db.QueryDefs
+    $queryDefs.Refresh()
+    $qdef = $queryDefs.Item($args_.name)
+    $sql = $qdef.SQL
+    Clear-ComObject $qdef
+    Clear-ComObject $queryDefs
+    Clear-ComObject $db
     [System.IO.File]::WriteAllText($args_.file, $sql, $Utf8NoBom)
     return @{ }
 }
@@ -406,9 +475,17 @@ function Op-SaveQuerySql([hashtable]$args_) {
     Assert-Open
     $sql = [System.IO.File]::ReadAllText($args_.file, $Utf8NoBom)
     $db = Get-Db
-    $db.QueryDefs.Refresh()
-    # DAO validates the SQL at assignment and throws (e.g. 3129) on bad syntax.
-    $db.QueryDefs($args_.name).SQL = $sql
+    $queryDefs = $db.QueryDefs
+    $queryDefs.Refresh()
+    $qdef = $queryDefs.Item($args_.name)
+    try {
+        # DAO validates the SQL at assignment and throws (e.g. 3129) on bad syntax.
+        $qdef.SQL = $sql
+    } finally {
+        Clear-ComObject $qdef
+        Clear-ComObject $queryDefs
+        Clear-ComObject $db
+    }
     return @{ saved = $true }
 }
 
@@ -454,6 +531,7 @@ function Op-GetTableDef([hashtable]$args_) {
     }
     Clear-ComObject $indexes
     Clear-ComObject $t
+    Clear-ComObject $db
     [System.IO.File]::WriteAllText($args_.file, $sb.ToString(), $Utf8NoBom)
     return @{ }
 }
@@ -512,6 +590,15 @@ function Op-UnlockVba([hashtable]$args_) {
 
 function Op-Compile([hashtable]$args_) {
     Assert-Open
+    # On a password-locked VBA project (or without VBA object-model trust) the
+    # CompileAndSaveAllModules command silently no-ops and reports success even when a
+    # module has a syntax error — false confidence. Detect via the same VBComponents
+    # reachability probe unlockVba polls, and say the check was skipped instead.
+    $vbeReachable = $true
+    try { $null = $script:app.VBE.ActiveVBProject.VBComponents.Count } catch { $vbeReachable = $false }
+    if (-not $vbeReachable) {
+        return @{ compiled = $true; skipped = $true; message = 'VBA project is password-locked or the VBA object model is not trusted; compile check unavailable.' }
+    }
     try {
         $script:app.DoCmd.RunCommand($acCmdCompileAndSaveAllModules)
         return @{ compiled = $true }
@@ -563,13 +650,64 @@ function Op-Compact([hashtable]$args_) {
 
     $script:app.CloseCurrentDatabase()
 
-    try {
-        $script:app.CompactRepair($sourcePath, $tempPath, $false)
-    } catch {
-        $info = Get-ErrorInfo $_
-        try { $script:app.OpenCurrentDatabase($sourcePath, $false) } catch { }
-        if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
-        return @{ _error = @{ code = $info.code; number = $info.number; hresult = $info.hresult; message = "Compact failed, database reopened unchanged: $($info.message)" } }
+    # Every earlier op that called Get-Db (CurrentDb()) leaves behind a live RCW referencing
+    # the DAO Database object — none of those call sites release it, so across a long-running
+    # session dozens can accumulate. .NET never collects them on its own schedule, so the
+    # underlying Jet/ACE engine sees the database as still "open" via those dangling references
+    # even after CloseCurrentDatabase() — CompactRepair then fails with "already opened by user
+    # ... on machine ..." even though no real client holds it. Force collection before compacting.
+    [GC]::Collect()
+    [GC]::WaitForPendingFinalizers()
+    [GC]::Collect()
+
+    # CloseCurrentDatabase() returns before the OS-level file lock is always fully released —
+    # calling CompactRepair immediately can race and fail with "already opened by user ...
+    # on machine ..." (this same instance's own, not-yet-cleared lock; the .laccdb itself can
+    # already be gone when this happens, e.g. under OneDrive sync briefly holding a read
+    # handle after heavy write activity — the busier the preceding session, the longer the
+    # window — so waiting on the lock FILE isn't enough). Retry CompactRepair itself with
+    # backoff (capped total ~60s, well under this op's 120s+ caller-side timeout budget).
+    $info = $null
+    $maxAttempts = 8
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        try {
+            # [void] is required — an unassigned COM method call result otherwise leaks onto
+            # PowerShell's output stream and becomes part of this function's return value,
+            # silently corrupting the JSON response (this was a preexisting, latent bug: it
+            # never surfaced before because CompactRepair had never actually succeeded here).
+            [void]$script:app.CompactRepair($sourcePath, $tempPath, $false)
+            $info = $null
+            break
+        } catch {
+            $info = Get-ErrorInfo $_
+            if ($info.code -ne 'DB_LOCKED' -or $attempt -eq $maxAttempts) { break }
+            if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
+            Start-Sleep -Milliseconds ([Math]::Min(2000 * $attempt, 10000))
+        }
+    }
+    if ($null -ne $info) {
+        # Access's CompactRepair insists on (re)compiling the VBA project and fails with
+        # "Cannot Compile Project." when the project is password-locked or uncompilable.
+        # The DAO engine compacts the same file without touching VBA — try that before
+        # giving up (verified: recovers a bloated file with a locked project intact).
+        $daoCompacted = $false
+        try {
+            if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
+            $dao = New-Object -ComObject DAO.DBEngine.120
+            try {
+                [void]$dao.CompactDatabase($sourcePath, $tempPath)
+                $daoCompacted = $true
+            } finally {
+                [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($dao)
+            }
+        } catch {
+            [Console]::Error.WriteLine("bridge warning: DAO CompactDatabase fallback failed: $($_.Exception.Message)")
+        }
+        if (-not $daoCompacted) {
+            try { [void](Open-DbShared $sourcePath) } catch { }
+            if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
+            return @{ _error = @{ code = $info.code; number = $info.number; hresult = $info.hresult; message = "Compact failed, database reopened unchanged: $($info.message)" } }
+        }
     }
 
     # Move-Item -Force is a single rename/replace, not delete-then-copy: if it fails, the
@@ -579,7 +717,7 @@ function Op-Compact([hashtable]$args_) {
         Move-Item -LiteralPath $tempPath -Destination $sourcePath -Force
     } catch {
         $info = Get-ErrorInfo $_
-        try { $script:app.OpenCurrentDatabase($sourcePath, $false) } catch { }
+        try { [void](Open-DbShared $sourcePath) } catch { }
         return @{ _error = @{ code = 'COM_ERROR'; number = 0; hresult = 0; message = "Compact succeeded (result left at $tempPath) but replacing the original file failed: $($info.message)" } }
     }
 
@@ -587,7 +725,7 @@ function Op-Compact([hashtable]$args_) {
     $lockPath = [System.IO.Path]::ChangeExtension($sourcePath, $lockExt)
     if (Test-Path -LiteralPath $lockPath) { Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue }
 
-    $script:app.OpenCurrentDatabase($sourcePath, $false)
+    [void](Open-DbShared $sourcePath)
     $script:dbPath = $sourcePath
     return @{ compacted = $true; listing = (Op-List) }
 }

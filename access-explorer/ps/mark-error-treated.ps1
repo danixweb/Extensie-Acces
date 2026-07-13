@@ -39,7 +39,7 @@ try {
     # Access survives after this script's COM client disconnects, instead of auto-quitting.
     try { $app.UserControl = $isVisible } catch { }
 
-    $app.OpenCurrentDatabase($DbPath, $false)
+    Open-DatabaseWithStartupBypass $app $DbPath
     $db = $app.CurrentDb()
     Connect-LinkedTables $db $creds | Out-Null
 
