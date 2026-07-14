@@ -641,9 +641,25 @@ export class AiMirrorManager implements vscode.Disposable {
     try {
       await fs.writeFile(prevFilePath, record.canonicalText, 'utf8');
       const fresh = await this.fsProvider.saveObject(record.uri, content);
-      await this.writeMirrorFile(record.filePath, fresh.text);
       record.canonicalText = fresh.text;
-      record.lastWrittenHash = sha1(fresh.text);
+
+      // A further edit may have landed on disk while the COM round-trip above was in
+      // flight; schedule() will already have queued a rerun for it (pendingRerun). If we
+      // blindly overwrote the mirror file with this save's canonical form now, we'd clobber
+      // that newer edit before it's ever read, and the rerun's hash check would then treat
+      // it as our own echo and silently drop it. Only normalize the file when nothing else
+      // has arrived since we read `content`.
+      let diskNow: string;
+      try {
+        diskNow = await fs.readFile(filePath, 'utf8');
+      } catch {
+        diskNow = content;
+      }
+      if (sha1(diskNow) === hash) {
+        await this.writeMirrorFile(record.filePath, fresh.text);
+        record.lastWrittenHash = sha1(fresh.text);
+      }
+
       const revert = vscode.l10n.t('Revert');
       const choice = await vscode.window.showInformationMessage(
         vscode.l10n.t('AI edit saved to Access: {0} ({1}). Test it live in Access.', record.name, record.category),
