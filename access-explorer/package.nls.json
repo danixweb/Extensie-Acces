@@ -28,5 +28,6 @@
   "cfg.bypassStartup": "Skip the database's Startup form and AutoExec macro when opening it (the classic Shift-bypass technique). Has no effect if the database's AllowBypassKey property was disabled by its developer.",
   "cfg.visibleOperations": "Show the Access window and the actual table, module or form/report being read or written, in real time, instead of running fully hidden.",
   "cfg.aiMirror.enabled": "Mirror every table, query, form, report, macro and module as a real file on disk (in a .accdb-ai folder next to the database) so AI coding tools such as Claude Code can find and edit them directly. Edits to mirrored files are saved back into Access automatically, with a Revert option.",
-  "cfg.compactOnClose": "Compact and repair the database automatically when closing it from Access Explorer. Skipped (with a warning) if the file can't be locked exclusively, e.g. another user or process has it open elsewhere — the database is still closed normally in that case."
+  "cfg.compactOnClose": "Compact and repair the database automatically when closing it from Access Explorer. Skipped (with a warning) if the file can't be locked exclusively, e.g. another user or process has it open elsewhere — the database is still closed normally in that case.",
+  "cfg.reopenOnStartup": "Automatically reopen databases that were open in Access Explorer when VS Code restarts or the window is reloaded (e.g. after \"Developer: Reload Window\"). Turn off to leave databases closed until you reopen them yourself."
 }

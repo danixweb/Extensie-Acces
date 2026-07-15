@@ -377,6 +377,11 @@
           "type": "boolean",
           "default": true,
           "description": "%cfg.compactOnClose%"
+        },
+        "accessExplorer.reopenOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.reopenOnStartup%"
         }
       }
     }

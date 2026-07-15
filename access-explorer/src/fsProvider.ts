@@ -114,6 +114,42 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
     }
   }
 
+  /**
+   * Re-fetches and re-caches every accessdb: document of this database that VS Code currently has
+   * open (typically tabs restored after an extension-host restart, pointing at now-empty `entries`),
+   * then fires a Changed event for each so a clean (non-dirty) tab transparently reloads live
+   * content — a dirty tab is left alone; its next save just runs the normal conflict check against
+   * the now-fresh baseline. Objects renamed/deleted since the previous session are silently skipped;
+   * the user's next explicit interaction with that tab will surface a clear error as usual.
+   */
+  async refreshOpenDocuments(db: OpenDatabase): Promise<void> {
+    const changed: vscode.FileChangeEvent[] = [];
+    for (const doc of vscode.workspace.textDocuments) {
+      if (doc.uri.scheme !== SCHEME) {
+        continue;
+      }
+      let parsed;
+      try {
+        parsed = parseUri(doc.uri);
+      } catch {
+        continue;
+      }
+      if (parsed.key !== db.key) {
+        continue;
+      }
+      try {
+        const entry = await this.loadEntry(db, parsed.category, parsed.name);
+        this.entries.set(doc.uri.toString(), entry);
+        changed.push({ type: vscode.FileChangeType.Changed, uri: doc.uri });
+      } catch {
+        // renamed/deleted since last session — leave it, next interaction surfaces a clear error
+      }
+    }
+    if (changed.length > 0) {
+      this.fileChangeEmitter.fire(changed);
+    }
+  }
+
   // ---------- FileSystemProvider ----------
 
   watch(): vscode.Disposable {

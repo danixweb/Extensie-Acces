@@ -25,6 +25,31 @@ let vbaUnlock: VbaUnlockManager;
 let linkedCredentials: LinkedCredentialsManager;
 let backups: BackupManager;
 let mirror: AiMirrorManager;
+let extensionContext: vscode.ExtensionContext;
+
+const REOPEN_STATE_KEY = 'accessExplorer.openDatabasePaths';
+
+function getPersistedDbPaths(): string[] {
+  return extensionContext.globalState.get<string[]>(REOPEN_STATE_KEY, []);
+}
+
+async function rememberOpenDatabase(dbPath: string): Promise<void> {
+  const existing = getPersistedDbPaths();
+  const lower = dbPath.toLowerCase();
+  if (existing.some((p) => p.toLowerCase() === lower)) {
+    return;
+  }
+  await extensionContext.globalState.update(REOPEN_STATE_KEY, [...existing, dbPath]);
+}
+
+async function forgetOpenDatabase(dbPath: string): Promise<void> {
+  const existing = getPersistedDbPaths();
+  const lower = dbPath.toLowerCase();
+  const next = existing.filter((p) => p.toLowerCase() !== lower);
+  if (next.length !== existing.length) {
+    await extensionContext.globalState.update(REOPEN_STATE_KEY, next);
+  }
+}
 
 export function activate(context: vscode.ExtensionContext): void {
   if (process.platform !== 'win32') {
@@ -34,6 +59,7 @@ export function activate(context: vscode.ExtensionContext): void {
     return;
   }
 
+  extensionContext = context;
   initLogger(context);
   backups = new BackupManager();
   fsProvider = new AccessFsProvider(registry, backups);
@@ -161,6 +187,8 @@ export function activate(context: vscode.ExtensionContext): void {
       await exportHtmlMockup(target.db, target.category, target.name);
     }),
   );
+
+  void reopenPersistedDatabases(scriptPath, workDir, findOrphansScriptPath);
 }
 
 /** Resolves the Form/Report to export either from a tree selection or the active accessdb: editor. */
@@ -305,6 +333,35 @@ async function openDatabase(
   if (openedDb) {
     await linkedCredentials.ensureConnected(openedDb);
     await mirror.ensureDir(openedDb);
+    await rememberOpenDatabase(openedDb.dbPath);
+    await fsProvider.refreshOpenDocuments(openedDb);
+  }
+}
+
+/** Fire-and-forget: reopens databases left open from the previous session, one at a time, via the
+ *  exact same openDatabase() path a manual open uses — restoring the bridge, the tree, and the
+ *  AI-mirror watcher (AiMirrorManager.ensureDir), plus refreshing any of that database's editor
+ *  tabs still open from before the restart. Never awaited by activate(), so a slow/orphaned Access
+ *  reconnect never delays extension startup. Sequential across databases, matching this codebase's
+ *  serial COM-automation pacing elsewhere (see MIRROR_STEP_DELAY_MS in aiMirror.ts). */
+async function reopenPersistedDatabases(
+  scriptPath: string,
+  workDir: string,
+  findOrphansScriptPath: string,
+): Promise<void> {
+  const cfg = vscode.workspace.getConfiguration('accessExplorer');
+  if (!cfg.get<boolean>('reopenOnStartup', true)) {
+    return;
+  }
+  for (const dbPath of getPersistedDbPaths()) {
+    try {
+      await fs.access(dbPath);
+    } catch {
+      log(`[access-explorer] skipping reopen of ${dbPath} — no longer on disk`);
+      await forgetOpenDatabase(dbPath);
+      continue;
+    }
+    await openDatabase(vscode.Uri.file(dbPath), scriptPath, workDir, findOrphansScriptPath);
   }
 }
 
@@ -423,6 +480,7 @@ async function closeDatabase(key: string): Promise<void> {
   if (!db) {
     return;
   }
+  await forgetOpenDatabase(db.dbPath);
   const cfg = vscode.workspace.getConfiguration('accessExplorer');
   if (cfg.get<boolean>('compactOnClose', true)) {
     // Best-effort: a failure here (e.g. another user/process has the file open elsewhere,
