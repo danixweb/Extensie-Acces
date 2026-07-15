@@ -427,9 +427,13 @@ async function closeDatabase(key: string): Promise<void> {
     // so CompactRepair can't get the access it needs) never blocks closing.
     await compactDatabase(db, false);
   }
+  // mirror.close() must run — and be awaited — before the database is dropped from the registry
+  // and the bridge is disposed: it waits for any AI-mirror push-back still in flight, and that
+  // push-back's own saveObject call needs the registry entry (and a live bridge) to succeed
+  // rather than fail with "database no longer open".
+  await mirror.close(db);
   registry.remove(key);
   fsProvider.dropDatabase(key);
-  await mirror.close(db);
   await db.bridge.dispose();
 }
 

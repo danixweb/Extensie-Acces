@@ -15,6 +15,11 @@ export interface DbListing {
   modules: string[];
   /** True when at least one TableDef is ODBC-linked (e.g. to SQL Server) and may need credentials. */
   hasLinkedTables: boolean;
+  /** Per-object DateModified (ISO string), Modules/Forms/Reports only — lets the persistent
+   *  on-disk AI mirror detect drift since it was last written without a full re-export. */
+  formDates?: Record<string, string>;
+  reportDates?: Record<string, string>;
+  moduleDates?: Record<string, string>;
 }
 
 interface PendingRequest {

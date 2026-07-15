@@ -196,7 +196,15 @@ function Op-Open([hashtable]$args_) {
     } else {
         Get-VisibleOperationsSetting (Join-Path $PSScriptRoot 'settings.local.json')
     }
-    $script:app.Visible = $script:visibleOperations
+    # A freshly-created out-of-process COM server is occasionally not yet ready to accept a
+    # property set this early (observed as "Exception setting Visible: ... invalid reference to
+    # the property Visible"); one short retry clears it without affecting behavior otherwise.
+    try {
+        $script:app.Visible = $script:visibleOperations
+    } catch {
+        Start-Sleep -Milliseconds 250
+        try { $script:app.Visible = $script:visibleOperations } catch { }
+    }
     # UserControl defaults to False (automation-owned): explicitly True when visible, so
     # Access survives even if the bridge process dies unexpectedly instead of auto-quitting
     # (normal shutdown still goes through Close-App's explicit Quit() either way).
@@ -259,10 +267,17 @@ function Op-List {
     Clear-ComObject $queryDefs
 
     $proj = $script:app.CurrentProject
-    $forms = @();   foreach ($o in $proj.AllForms)   { $forms   += $o.Name; Clear-ComObject $o }
-    $reports = @(); foreach ($o in $proj.AllReports) { $reports += $o.Name; Clear-ComObject $o }
+    # DateModified is read here (already-enumerated object, no extra COM round-trip) so the
+    # extension can cheaply detect drift in its persistent on-disk AI mirror without a full
+    # SaveAsText export. Reliable for these three categories because every write path
+    # (saveModule/saveFormDef/saveReportDef) already calls DoCmd.Save.
+    $forms = @();   $formDates = @{}
+    foreach ($o in $proj.AllForms)   { $forms   += $o.Name; try { $formDates[$o.Name]   = $o.DateModified.ToString('o') } catch {}; Clear-ComObject $o }
+    $reports = @(); $reportDates = @{}
+    foreach ($o in $proj.AllReports) { $reports += $o.Name; try { $reportDates[$o.Name] = $o.DateModified.ToString('o') } catch {}; Clear-ComObject $o }
     $macros = @();  foreach ($o in $proj.AllMacros)  { $macros  += $o.Name; Clear-ComObject $o }
-    $modules = @(); foreach ($o in $proj.AllModules) { $modules += $o.Name; Clear-ComObject $o }
+    $modules = @(); $moduleDates = @{}
+    foreach ($o in $proj.AllModules) { $modules += $o.Name; try { $moduleDates[$o.Name] = $o.DateModified.ToString('o') } catch {}; Clear-ComObject $o }
     Clear-ComObject $proj
     Clear-ComObject $db
 
@@ -274,6 +289,9 @@ function Op-List {
         macros  = @($macros  | Sort-Object)
         modules = @($modules | Sort-Object)
         hasLinkedTables = $hasLinkedTables
+        formDates   = $formDates
+        reportDates = $reportDates
+        moduleDates = $moduleDates
     }
 }
 
@@ -371,10 +389,22 @@ function Show-CodePane([string]$name) {
 
 function Show-DesignObject([string]$kind, [string]$name) {
     if (-not $script:visibleOperations) { return }
+    $objType = if ($kind -eq 'form') { $acForm } else { $acReport }
+    # Close any stale instance left open by a previous call first (acSaveNo) — never open the
+    # same object twice, which is what leaves it dirty/blocking a later save-prompt.
+    try { $script:app.DoCmd.Close($objType, $name, 2) } catch { }
     try {
         if ($kind -eq 'form') { $script:app.DoCmd.OpenForm($name, $acDesignView) }
         else { $script:app.DoCmd.OpenReport($name, $acDesignView) }
     } catch { }
+}
+
+# Closes a form/report opened by Show-DesignObject (acSaveNo) so it's never left open+dirty for a
+# later operation (another read/save, or final Close-App) to hang on.
+function Close-DesignObject([string]$kind, [string]$name) {
+    if (-not $script:visibleOperations) { return }
+    $objType = if ($kind -eq 'form') { $acForm } else { $acReport }
+    try { $script:app.DoCmd.Close($objType, $name, 2) } catch { }
 }
 
 function Op-GetModule([hashtable]$args_) {
@@ -536,14 +566,32 @@ function Op-GetTableDef([hashtable]$args_) {
     return @{ }
 }
 
-function Op-GetFormDef([hashtable]$args_)   { Assert-Open; Show-DesignObject 'form' $args_.name; $r = Export-ObjectText $acForm   $args_.name $args_.file; return @{ enc = $r.enc } }
-function Op-GetReportDef([hashtable]$args_) { Assert-Open; Show-DesignObject 'report' $args_.name; $r = Export-ObjectText $acReport $args_.name $args_.file; return @{ enc = $r.enc } }
+function Op-GetFormDef([hashtable]$args_) {
+    Assert-Open
+    # Export first, while the object is still closed/clean — SaveAsText never needs it open, and
+    # opening it in Design View first (for the visibleOperations "watch it happen" cosmetic) can
+    # dirty some forms immediately, which would make SaveAsText itself block on a native
+    # "must save before completing this operation" modal.
+    $r = Export-ObjectText $acForm $args_.name $args_.file
+    Show-DesignObject 'form' $args_.name
+    Close-DesignObject 'form' $args_.name
+    return @{ enc = $r.enc }
+}
+
+function Op-GetReportDef([hashtable]$args_) {
+    Assert-Open
+    $r = Export-ObjectText $acReport $args_.name $args_.file
+    Show-DesignObject 'report' $args_.name
+    Close-DesignObject 'report' $args_.name
+    return @{ enc = $r.enc }
+}
 
 function Op-SaveFormDef([hashtable]$args_) {
     Assert-Open
     $enc = if ($args_.ContainsKey('enc') -and $args_.enc) { [string]$args_.enc } else { 'ansi' }
     Import-ObjectText $acForm $args_.name $args_.file $enc
     Show-DesignObject 'form' $args_.name
+    Close-DesignObject 'form' $args_.name
     return @{ saved = $true }
 }
 
@@ -552,6 +600,7 @@ function Op-SaveReportDef([hashtable]$args_) {
     $enc = if ($args_.ContainsKey('enc') -and $args_.enc) { [string]$args_.enc } else { 'ansi' }
     Import-ObjectText $acReport $args_.name $args_.file $enc
     Show-DesignObject 'report' $args_.name
+    Close-DesignObject 'report' $args_.name
     return @{ saved = $true }
 }
 
@@ -732,6 +781,24 @@ function Op-Compact([hashtable]$args_) {
 
 function Close-App {
     if ($null -ne $script:app) {
+        # Defensive sweep: discard any Form/Report left open (e.g. in Design View) by any code
+        # path, same acSaveNo pattern as the Startup-form sweep in Open-DbShared — a leftover
+        # dirty design window would otherwise block CloseCurrentDatabase/Quit below on the same
+        # native "must save" modal that Show-DesignObject/Close-DesignObject guard against.
+        try {
+            $guard = 0
+            while ($script:app.Forms.Count -gt 0 -and $guard -lt 20) {
+                $script:app.DoCmd.Close($acForm, $script:app.Forms.Item(0).Name, 2)
+                $guard++
+            }
+        } catch { }
+        try {
+            $guard = 0
+            while ($script:app.Reports.Count -gt 0 -and $guard -lt 20) {
+                $script:app.DoCmd.Close($acReport, $script:app.Reports.Item(0).Name, 2)
+                $guard++
+            }
+        } catch { }
         try { $script:app.CloseCurrentDatabase() } catch { }
         try { $script:app.Quit($acQuitSaveNone) } catch { }
         try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($script:app) } catch { }

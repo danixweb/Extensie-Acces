@@ -1,0 +1,215 @@
+{
+  "generatedAt": "2026-07-15T14:50:07.611Z",
+  "objects": [
+    {
+      "category": "Forms",
+      "name": "10 COMENZI SIMPLA",
+      "file": "Forms/10 COMENZI SIMPLA.form.txt",
+      "role": "focus"
+    },
+    {
+      "category": "Tables",
+      "name": "Setari",
+      "file": "Tables/Setari.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "Sarje",
+      "file": "Tables/Sarje.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "COMENZI",
+      "file": "Tables/COMENZI.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "Nomenclator articole",
+      "file": "Tables/Nomenclator articole.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "Retete",
+      "file": "Tables/Retete.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_Atasamente",
+      "file": "Tables/dbo_Atasamente.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_Situatie comenzi",
+      "file": "Tables/dbo_Situatie comenzi.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Queries",
+      "name": "EmailuriTrimiseNumar",
+      "file": "Queries/EmailuriTrimiseNumar.sql",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "Email_issues",
+      "file": "Tables/Email_issues.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Queries",
+      "name": "qry_Situatie comenzi produs gresit",
+      "file": "Queries/qry_Situatie comenzi produs gresit.sql",
+      "role": "dependency"
+    },
+    {
+      "category": "Queries",
+      "name": "qry_Situatie comenzi produs DUPLICAT gresit",
+      "file": "Queries/qry_Situatie comenzi produs DUPLICAT gresit.sql",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_Filtre stare comenzi",
+      "file": "Tables/dbo_Filtre stare comenzi.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "Configurari",
+      "file": "Tables/Configurari.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_SarjeInterneActive",
+      "file": "Tables/dbo_SarjeInterneActive.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_SarjeInterneProduse",
+      "file": "Tables/dbo_SarjeInterneProduse.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "sarjeMan componente",
+      "file": "Tables/sarjeMan componente.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_Detalii articol",
+      "file": "Tables/dbo_Detalii articol.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "7 NORME",
+      "file": "Tables/7 NORME.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "SurplusSarje",
+      "file": "Tables/SurplusSarje.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_sarjeMan componente REZERVAT TIPARIRE",
+      "file": "Tables/dbo_sarjeMan componente REZERVAT TIPARIRE.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "999OPERARI",
+      "file": "Tables/999OPERARI.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "REZERVARI",
+      "file": "Tables/REZERVARI.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Queries",
+      "name": "1001 ELIBERARE",
+      "file": "Queries/1001 ELIBERARE.sql",
+      "role": "dependency"
+    },
+    {
+      "category": "Queries",
+      "name": "1001 ELIBERARE pe sarja",
+      "file": "Queries/1001 ELIBERARE pe sarja.sql",
+      "role": "dependency"
+    },
+    {
+      "category": "Queries",
+      "name": "STOC1",
+      "file": "Queries/STOC1.sql",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_Detalii comanda",
+      "file": "Tables/dbo_Detalii comanda.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "14 1 Date exporturi",
+      "file": "Tables/14 1 Date exporturi.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "MODELE",
+      "file": "Tables/MODELE.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Queries",
+      "name": "Modele nescanate",
+      "file": "Queries/Modele nescanate.sql",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "TIMP DE PREGATIRE MASINA",
+      "file": "Tables/TIMP DE PREGATIRE MASINA.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_EMAILURI",
+      "file": "Tables/dbo_EMAILURI.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "Clisee arse",
+      "file": "Tables/Clisee arse.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "2 DateProtocolGermania",
+      "file": "Tables/2 DateProtocolGermania.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "CLISEE",
+      "file": "Tables/CLISEE.table.txt",
+      "role": "dependency"
+    }
+  ]
+}

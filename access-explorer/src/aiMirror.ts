@@ -2,7 +2,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { MIRROR_TIMEOUT_MS } from './bridge';
+import { DbListing, MIRROR_TIMEOUT_MS } from './bridge';
 import { describeError } from './errors';
 import { AccessFsProvider } from './fsProvider';
 import { log } from './logger';
@@ -19,12 +19,43 @@ import {
   encodeFsName,
   extFor,
   listingFor,
+  objectUri,
   OpenDatabase,
   parseUri,
 } from './model';
 import { parseProcedures } from './vbaSymbols';
 
 export const MIRROR_DIR_NAME = '.accdb-ai';
+
+/** Sidecar recording, per object, the Access-side DateModified last seen when it was mirrored —
+ *  lets a persisted mirror file from a previous session be trusted without a COM re-fetch. */
+const MIRROR_META_FILE = '.mirror-meta.json';
+/** Manifest of the last on-demand mirror pass: the clicked object plus its discovered
+ *  dependencies, so an external tool can jump straight to the relevant files. */
+const WORKING_SET_FILE = '.working-set.json';
+
+/** Categories with a cheap DateModified signal (see access-bridge.ps1 Op-List) — the only ones
+ *  primeFromDisk can validate without a full re-export; Tables/Queries/Macros always refetch. */
+const DATE_TRACKED_CATEGORIES: ReadonlySet<Category> = new Set(['Modules', 'Forms', 'Reports']);
+
+/** "<Category>/<UPPER-NAME>" key used by the .mirror-meta.json sidecar (Access names are
+ *  case-insensitive). */
+function metaKey(category: Category, name: string): string {
+  return `${category}/${name.toUpperCase()}`;
+}
+
+function dateMapFor(listing: DbListing, category: Category): Record<string, string> | undefined {
+  switch (category) {
+    case 'Modules':
+      return listing.moduleDates;
+    case 'Forms':
+      return listing.formDates;
+    case 'Reports':
+      return listing.reportDates;
+    default:
+      return undefined;
+  }
+}
 
 interface MirrorRecord {
   uri: vscode.Uri;
@@ -43,6 +74,8 @@ interface DbMirrorState {
   watcher: vscode.FileSystemWatcher;
   byPath: Map<string, MirrorRecord>; // keyed by filePath.toLowerCase()
   byUri: Map<string, MirrorRecord>; // keyed by uri.toString()
+  /** metaKey(category, name) -> last known Access-side DateModified, persisted to MIRROR_META_FILE. */
+  meta: Record<string, string>;
 }
 
 function sha1(text: string): string {
@@ -72,6 +105,8 @@ export class AiMirrorManager implements vscode.Disposable {
   private readonly perDb = new Map<string, DbMirrorState>();
   private readonly processing = new Map<string, Promise<void>>();
   private readonly pendingRerun = new Set<string>();
+  /** db.key set once primeFromDisk has run for it this VS Code session. */
+  private readonly primed = new Set<string>();
   private readonly listener: vscode.Disposable;
   /** Per-db procedure-name (uppercased) -> module-name index, built lazily by ensureModuleIndex. */
   private readonly procIndex = new Map<string, Map<string, string>>();
@@ -108,6 +143,7 @@ export class AiMirrorManager implements vscode.Disposable {
     const dir = this.mirrorDirFor(db);
     await fs.mkdir(dir, { recursive: true });
     const state = this.stateFor(db, dir);
+    await this.ensureStatePrimed(db, state);
     const seen = new Set<string>();
     const total = CATEGORIES.reduce((n, c) => n + listingFor(db.listing, c).length, 0) || 1;
     let done = 0;
@@ -121,7 +157,7 @@ export class AiMirrorManager implements vscode.Disposable {
           return;
         }
         try {
-          await this.materializeOne(db, state, category, name, seen);
+          await this.materializeOne(db, state, category, name, seen, { forceRefresh: true });
           log(`[ai-mirror] ${category}/${name}: OK (${done + 1}/${total})`);
         } catch (err) {
           log(`[ai-mirror] ${category}/${name}: FAILED — ${describeError(err)} (${done + 1}/${total})`);
@@ -135,14 +171,17 @@ export class AiMirrorManager implements vscode.Disposable {
   }
 
   /** Ensures the mirror dir + watcher exist for a just-opened database, with no COM reads —
-   *  objects are mirrored on demand (see `mirrorOnDemand`), not eagerly at open. */
+   *  objects are mirrored on demand (see `mirrorOnDemand`), not eagerly at open. Also primes
+   *  byPath/byUri from any mirror files persisted from a previous session (primeFromDisk), which
+   *  is itself COM-free — it only compares against db.listing's already-fetched DateModified. */
   async ensureDir(db: OpenDatabase): Promise<void> {
     if (!mirrorEnabled()) {
       return;
     }
     const dir = this.mirrorDirFor(db);
     await fs.mkdir(dir, { recursive: true });
-    this.stateFor(db, dir);
+    const state = this.stateFor(db, dir);
+    await this.ensureStatePrimed(db, state);
   }
 
   /**
@@ -158,11 +197,18 @@ export class AiMirrorManager implements vscode.Disposable {
       return;
     }
     const dir = this.mirrorDirFor(db);
-    const state = this.perDb.get(db.key);
+    let state = this.perDb.get(db.key);
     if (!state) {
+      // First touch this session: sets up watching and primes byPath/byUri from any mirror files
+      // persisted from a previous session, so a "Refresh" right after reopening a database still
+      // finds (and force-refreshes) whatever was already mirrored, not just this-session state.
       await this.ensureDir(db);
-      return; // nothing mirrored yet — nothing to refresh
+      state = this.perDb.get(db.key);
     }
+    if (!state) {
+      return; // mirroring disabled
+    }
+    await this.ensureStatePrimed(db, state);
     const records = [...state.byPath.values()];
     const seen = new Set<string>();
     const total = records.length || 1;
@@ -181,7 +227,7 @@ export class AiMirrorManager implements vscode.Disposable {
         continue;
       }
       try {
-        await this.materializeOne(db, state, record.category, record.name, seen);
+        await this.materializeOne(db, state, record.category, record.name, seen, { forceRefresh: true });
         log(`[ai-mirror] ${record.category}/${record.name}: OK (${done + 1}/${total})`);
       } catch (err) {
         log(`[ai-mirror] ${record.category}/${record.name}: FAILED — ${describeError(err)} (${done + 1}/${total})`);
@@ -207,9 +253,11 @@ export class AiMirrorManager implements vscode.Disposable {
     const dir = this.mirrorDirFor(db);
     await fs.mkdir(dir, { recursive: true });
     const state = this.stateFor(db, dir);
+    await this.ensureStatePrimed(db, state);
     const seen = new Set<string>(); // satisfies materializeOne's signature; no pruneStale pass here
     const visited = new Set<string>();
     const queue: { category: Category; name: string }[] = [{ category, name }];
+    const workingSet: { category: Category; name: string; file: string; role: 'focus' | 'dependency' }[] = [];
 
     while (queue.length > 0) {
       const next = queue.shift()!;
@@ -233,6 +281,17 @@ export class AiMirrorManager implements vscode.Disposable {
       try {
         text = await this.materializeOne(db, state, next.category, resolvedName, seen);
         log(`[ai-mirror] ${next.category}/${resolvedName}: OK (on-demand)`);
+        const record = [...state.byPath.values()].find(
+          (r) => r.category === next.category && r.name === resolvedName,
+        );
+        if (record) {
+          workingSet.push({
+            category: next.category,
+            name: resolvedName,
+            file: path.relative(dir, record.filePath).split(path.sep).join('/'),
+            role: workingSet.length === 0 ? 'focus' : 'dependency',
+          });
+        }
       } catch (err) {
         log(`[ai-mirror] ${next.category}/${resolvedName}: FAILED — ${describeError(err)} (on-demand)`);
         continue;
@@ -269,6 +328,21 @@ export class AiMirrorManager implements vscode.Disposable {
         }
       }
     }
+    await this.writeWorkingSetManifest(dir, workingSet);
+  }
+
+  /** Overwrites WORKING_SET_FILE with the focus object + dependencies just discovered by
+   *  mirrorOnDemand's BFS, so an external tool (e.g. Claude Code) can jump straight to the
+   *  relevant mirrored files instead of scanning the whole .accdb-ai/ tree. Reflects only the
+   *  most recent click — always overwritten, never appended. */
+  private async writeWorkingSetManifest(
+    dir: string,
+    objects: { category: Category; name: string; file: string; role: 'focus' | 'dependency' }[],
+  ): Promise<void> {
+    const payload = { generatedAt: new Date().toISOString(), objects };
+    await fs
+      .writeFile(path.join(dir, WORKING_SET_FILE), JSON.stringify(payload, null, 2), 'utf8')
+      .catch(() => undefined);
   }
 
   /** Matches a name (from SQL/domain-function extraction) against Tables first, then Queries — both
@@ -434,17 +508,41 @@ export class AiMirrorManager implements vscode.Disposable {
     }
   }
 
-  /** Stops watching and removes the mirror folder — it is a derived artifact, not a durable store. */
+  /**
+   * Stops watching and waits for any sync already in flight to finish — the mirror directory
+   * itself is kept on disk as a cross-session cache (see primeFromDisk), no longer wiped here.
+   * Must run, and be awaited, before the caller releases the COM bridge (registry.remove +
+   * bridge.dispose in extension.ts's closeDatabase), otherwise an in-flight push-back would find
+   * the database already gone and fail instead of completing.
+   */
   async close(db: OpenDatabase): Promise<void> {
     this.procIndex.delete(db.key);
     this.procIndexBuilding.delete(db.key);
+    this.primed.delete(db.key);
     const state = this.perDb.get(db.key);
     if (!state) {
       return;
     }
-    this.perDb.delete(db.key);
     state.watcher.dispose();
-    await fs.rm(state.dir, { recursive: true, force: true }).catch(() => undefined);
+    await this.flushPending(state.dir);
+    this.perDb.delete(db.key);
+  }
+
+  /**
+   * Awaits any handleDiskChange/handleDiskDelete runs already in flight for paths under `dir`.
+   * processing/pendingRerun are keyed by bare file path, not by database, so filter by prefix.
+   * Loops because a coalesced rerun (pendingRerun) can start a fresh promise for the same key
+   * right as the one we're awaiting resolves.
+   */
+  private async flushPending(dir: string): Promise<void> {
+    const prefix = dir.toLowerCase();
+    for (;;) {
+      const matching = [...this.processing.entries()].filter(([key]) => key.startsWith(prefix));
+      if (matching.length === 0) {
+        return;
+      }
+      await Promise.all(matching.map(([, p]) => p));
+    }
   }
 
   // ---------- materialize ----------
@@ -459,20 +557,126 @@ export class AiMirrorManager implements vscode.Disposable {
     watcher.onDidChange((uri) => this.onDiskEvent(dbKey, uri));
     watcher.onDidCreate((uri) => this.onDiskEvent(dbKey, uri));
     watcher.onDidDelete((uri) => this.onDiskDeleteEvent(dbKey, uri));
-    const state: DbMirrorState = { dir, watcher, byPath: new Map(), byUri: new Map() };
+    const state: DbMirrorState = { dir, watcher, byPath: new Map(), byUri: new Map(), meta: {} };
     this.perDb.set(dbKey, state);
     return state;
   }
 
+  private async loadMirrorMeta(dir: string): Promise<Record<string, string>> {
+    try {
+      const raw = await fs.readFile(path.join(dir, MIRROR_META_FILE), 'utf8');
+      return JSON.parse(raw) as Record<string, string>;
+    } catch {
+      return {};
+    }
+  }
+
+  private async persistMirrorMeta(state: DbMirrorState): Promise<void> {
+    await fs
+      .writeFile(path.join(state.dir, MIRROR_META_FILE), JSON.stringify(state.meta, null, 2), 'utf8')
+      .catch(() => undefined);
+  }
+
+  private recordMeta(state: DbMirrorState, category: Category, name: string, dateModified: string | undefined): void {
+    if (!dateModified || !DATE_TRACKED_CATEGORIES.has(category)) {
+      return;
+    }
+    state.meta[metaKey(category, name)] = dateModified;
+  }
+
+  /** Runs primeFromDisk exactly once per database per VS Code session, the first time its mirror
+   *  state is touched (materialize/mirrorOnDemand/ensureDir/resyncMirrored all call this right
+   *  after stateFor). */
+  private async ensureStatePrimed(db: OpenDatabase, state: DbMirrorState): Promise<void> {
+    if (this.primed.has(db.key)) {
+      return;
+    }
+    this.primed.add(db.key);
+    await this.primeFromDisk(db, state);
+  }
+
+  /**
+   * Populates byPath/byUri from mirror files already on disk from a previous session — with zero
+   * COM calls — for objects whose recorded DateModified (MIRROR_META_FILE) still matches the
+   * fresh value from this session's db.listing (see access-bridge.ps1 Op-List). Objects with no
+   * recorded date, or a drifted one, are left unprimed: materializeOne will treat them exactly
+   * like a never-mirrored object and do a real COM fetch on first touch, overwriting the stale
+   * file. Scoped to Modules/Forms/Reports — the only categories with a DateModified signal.
+   */
+  private async primeFromDisk(db: OpenDatabase, state: DbMirrorState): Promise<void> {
+    state.meta = await this.loadMirrorMeta(state.dir);
+    for (const category of DATE_TRACKED_CATEGORIES) {
+      let entries: string[];
+      try {
+        entries = await fs.readdir(path.join(state.dir, category));
+      } catch {
+        continue; // nothing mirrored in this category yet
+      }
+      const freshDates = dateMapFor(db.listing, category);
+      for (const entry of entries) {
+        if (entry.endsWith('.prev')) {
+          continue;
+        }
+        const name = this.decodeMirrorFileName(category, entry);
+        if (!name) {
+          continue;
+        }
+        const resolvedName = listingFor(db.listing, category).find((n) => n.toUpperCase() === name.toUpperCase());
+        if (!resolvedName) {
+          continue; // renamed/deleted since last session — a future Refresh will clean it up
+        }
+        const knownDate = state.meta[metaKey(category, resolvedName)];
+        const currentDate = freshDates?.[resolvedName];
+        if (!knownDate || !currentDate || knownDate !== currentDate) {
+          continue; // unknown or drifted — treat as not-yet-mirrored
+        }
+        const filePath = path.join(state.dir, category, entry);
+        let content: string;
+        try {
+          content = await fs.readFile(filePath, 'utf8');
+        } catch {
+          continue;
+        }
+        const ext = extFor(category, entry);
+        if (!ext) {
+          continue;
+        }
+        const uri = objectUri(db.key, category, resolvedName, ext);
+        const record: MirrorRecord = {
+          uri,
+          category,
+          name: resolvedName,
+          filePath,
+          readonly: false,
+          canonicalText: content,
+          lastWrittenHash: sha1(content),
+        };
+        state.byPath.set(filePath.toLowerCase(), record);
+        state.byUri.set(uri.toString(), record);
+      }
+    }
+  }
+
   /** Returns the object's fetched text so callers that also need to parse it (on-demand dependency
-   *  expansion, module index build) don't pay for a second COM round-trip. */
+   *  expansion, module index build) don't pay for a second COM round-trip. When an object is
+   *  already known (this session, or primed from a previous one) and `forceRefresh` isn't set,
+   *  trusts it as-is with zero COM cost — the "mirror only what isn't mirrored yet" path.
+   *  `forceRefresh` (used by the explicit Refresh/"re-mirror everything" commands) always
+   *  re-fetches from Access, still skipping the disk write if nothing actually changed. */
   private async materializeOne(
     db: OpenDatabase,
     state: DbMirrorState,
     category: Category,
     name: string,
     seen: Set<string>,
+    opts: { forceRefresh?: boolean } = {},
   ): Promise<string> {
+    const existingByName = [...state.byPath.values()].find((r) => r.category === category && r.name === name);
+    if (existingByName && !opts.forceRefresh) {
+      seen.add(existingByName.filePath.toLowerCase());
+      return existingByName.canonicalText;
+    }
+
     const { uri, text, readonly } = await this.fsProvider.readObject(db, category, name, MIRROR_TIMEOUT_MS);
     const fileName = uri.path.slice(uri.path.lastIndexOf('/') + 1);
     const ext = extFor(category, fileName);
@@ -484,15 +688,16 @@ export class AiMirrorManager implements vscode.Disposable {
     seen.add(key);
 
     const hash = sha1(text);
-    const existing = state.byPath.get(key);
-    if (existing && existing.lastWrittenHash === hash) {
-      return text; // unchanged since last materialize — skip disk IO
+    if (existingByName && existingByName.lastWrittenHash === hash) {
+      return text; // forced refresh confirmed nothing changed — skip disk IO
     }
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await this.writeMirrorFile(filePath, text);
     const record: MirrorRecord = { uri, category, name, filePath, readonly, canonicalText: text, lastWrittenHash: hash };
     state.byPath.set(key, record);
     state.byUri.set(uri.toString(), record);
+    this.recordMeta(state, category, name, dateMapFor(db.listing, category)?.[name]);
+    void this.persistMirrorMeta(state);
     return text;
   }
 
@@ -574,17 +779,27 @@ export class AiMirrorManager implements vscode.Disposable {
     this.processing.set(key, runOnce);
   }
 
+  /** True for our own sidecar files (.prev revert snapshots, the meta/working-set manifests) —
+   *  never treated as database object edits by the watcher. */
+  private isSidecarPath(filePath: string): boolean {
+    if (filePath.toLowerCase().endsWith('.prev')) {
+      return true;
+    }
+    const base = path.basename(filePath);
+    return base === MIRROR_META_FILE || base === WORKING_SET_FILE;
+  }
+
   private onDiskEvent(dbKey: string, uri: vscode.Uri): void {
     const filePath = uri.fsPath;
-    if (filePath.toLowerCase().endsWith('.prev')) {
-      return; // our own revert-snapshot files, never treated as object edits
+    if (this.isSidecarPath(filePath)) {
+      return;
     }
     this.schedule(filePath.toLowerCase(), () => this.handleDiskChange(dbKey, filePath));
   }
 
   private onDiskDeleteEvent(dbKey: string, uri: vscode.Uri): void {
     const filePath = uri.fsPath;
-    if (filePath.toLowerCase().endsWith('.prev')) {
+    if (this.isSidecarPath(filePath)) {
       return;
     }
     this.schedule(filePath.toLowerCase(), () => this.handleDiskDelete(dbKey, filePath));
@@ -659,6 +874,10 @@ export class AiMirrorManager implements vscode.Disposable {
         await this.writeMirrorFile(record.filePath, fresh.text);
         record.lastWrittenHash = sha1(fresh.text);
       }
+      // Access stamped a fresh DateModified via the DoCmd.Save inside saveObject — record "now"
+      // as an approximation so a future session's primeFromDisk knows this file is caught up.
+      this.recordMeta(state, record.category, record.name, new Date().toISOString());
+      void this.persistMirrorMeta(state);
 
       const revert = vscode.l10n.t('Revert');
       const choice = await vscode.window.showInformationMessage(
