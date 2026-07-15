@@ -33,6 +33,10 @@ const MIRROR_META_FILE = '.mirror-meta.json';
 /** Manifest of the last on-demand mirror pass: the clicked object plus its discovered
  *  dependencies, so an external tool can jump straight to the relevant files. */
 const WORKING_SET_FILE = '.working-set.json';
+/** Written by cursorContext.ts: which routine the user's cursor is currently inside, in whichever
+ *  accessdb: document is active — lets an external tool infer the intended target of a command
+ *  like /vba-analiza without an explicit name or a real (mirror-file) selection. */
+export const CURSOR_CONTEXT_FILE = '.cursor-context.json';
 
 /** Categories with a cheap DateModified signal (see access-bridge.ps1 Op-List) — the only ones
  *  primeFromDisk can validate without a full re-export; Tables/Queries/Macros always refetch. */
@@ -806,7 +810,7 @@ export class AiMirrorManager implements vscode.Disposable {
       return true;
     }
     const base = path.basename(filePath);
-    return base === MIRROR_META_FILE || base === WORKING_SET_FILE;
+    return base === MIRROR_META_FILE || base === WORKING_SET_FILE || base === CURSOR_CONTEXT_FILE;
   }
 
   private onDiskEvent(dbKey: string, uri: vscode.Uri): void {

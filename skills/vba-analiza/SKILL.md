@@ -26,6 +26,7 @@ Pentru checklist-urile detaliate ale operațiilor de analiză (`optimizeaza`, `b
 1. Identifică exact fișierul și rutina cerută — delimitarea unei rutine e `Sub|Function|Property Get|Let|Set ... End Sub|End Function|End Property`.
 2. Dacă utilizatorul nu specifică o rutină/modul prin nume în comandă, determină ținta din contextul editorului, în această ordine:
    - Dacă există o selecție curentă în editor (tipic rezultatul comenzii "Select Code for AI" din extensie) — analizează exact acea selecție, nu presupune "tot fișierul" în locul ei.
+   - Altfel, caută `.accdb-ai/.cursor-context.json` lângă baza de date curentă — extensia îl scrie automat de fiecare dată când cursorul se mută pe o altă rutină în editor (inclusiv la alegerea unei rutini din combourile de tip "obiect"/"procedură" din bara de breadcrumbs a editorului, care doar mută cursorul, fără să creeze o selecție reală). Conține `{category, module, routine, kindWord, startLine, endLine}` (linii 1-based) — dacă există și pare proaspăt (corespunde documentului/modulului activ), analizează exact acea rutină, citindu-i codul din fișierul-oglindă `.accdb-ai/<category>/<module>...` la liniile indicate.
    - Altfel, dacă există un document deschis în editor în context — analizează tot documentul (modulul întreg).
    - Doar dacă niciuna din cele de mai sus nu e disponibilă, cere clarificare în loc să presupui o țintă.
 3. Dacă rutina are părți deja tratate anterior (ex. are deja tratare de erori de la skill-ul `vba-include-tratare-erori`), nu le rescrie — ia-le ca atare în analiză.
@@ -39,6 +40,7 @@ Pentru checklist-urile detaliate ale operațiilor de analiză (`optimizeaza`, `b
   ... cod ...
   '===Final Generat AI===
   ```
+- După orice editare aplicată (nu doar propusă), recitește fișierul și confirmă că textul chiar apare acolo înainte de a raporta succesul — un apel de editare eșuat sau neexecutat nu se raportează niciodată ca aplicat.
 - Nu se declanșează proactiv — doar la cerere explicită, pe o rutină/modul numit(ă), la fel ca `vba-include-tratare-erori`.
 - Nu inventează convenții noi (nume de funcții, stil de mesaje, denumiri) — reutilizează ce există deja în fișier/proiect.
 - Pentru `erori`: nu reimplementează tratarea de erori aici — recomandă rularea skill-ului `vba-include-tratare-erori`, care deține acea convenție.

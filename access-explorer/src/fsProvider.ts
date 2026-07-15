@@ -176,7 +176,7 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
             const header = entry.header ?? synthesizeStandardHeader(name);
             await db.bridge.saveModule(name, joinModuleHeader(header, newText), false);
           }
-          this.scheduleCompileCheck(db, name);
+          this.scheduleCompileCheck(db, uri, category, name);
           break;
         }
         case 'Queries':
@@ -192,7 +192,7 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
           // never parsed, just spliced back verbatim ahead of the edited code.
           const joined = joinModuleHeader(entry.header ?? '', newText);
           await db.bridge.saveFormOrReportDef(kind, name, joined, entry.codeEnc ?? 'ansi');
-          this.scheduleCompileCheck(db, name);
+          this.scheduleCompileCheck(db, uri, category, name);
           break;
         }
       }
@@ -400,15 +400,23 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
     }
   }
 
-  /** Fire-and-forget compile check after a module save; failure is a warning, not a rollback. */
-  private scheduleCompileCheck(db: OpenDatabase, moduleName: string): void {
+  /**
+   * Fire-and-forget compile check after a module save; failure is a warning, not a rollback.
+   * `acCmdCompileAndSaveAllModules` re-saves (and can subtly reformat) the *whole* VBA project,
+   * including the object we just wrote — beyond what saveObject's own immediate post-write
+   * re-read already captured. Without refreshing the cached baseline afterward, the next save of
+   * this same object (from the accessdb: editor or the AI mirror) would see Access's real content
+   * diverge from our stale baseline and fail with a false-positive CONFLICT, even though nothing
+   * external actually touched it.
+   */
+  private scheduleCompileCheck(db: OpenDatabase, uri: vscode.Uri, category: Category, moduleName: string): void {
     const cfg = vscode.workspace.getConfiguration('accessExplorer');
     if (!cfg.get<boolean>('compileAfterSave', true)) {
       return;
     }
     void db.bridge
       .compile(moduleName)
-      .then((result) => {
+      .then(async (result) => {
         if (!result.compiled) {
           void vscode.window.showWarningMessage(
             vscode.l10n.t(
@@ -416,6 +424,22 @@ export class AccessFsProvider implements vscode.FileSystemProvider {
               result.message ?? vscode.l10n.t('unknown compile error'),
             ),
           );
+        }
+        const entry = this.entries.get(uri.toString());
+        if (!entry) {
+          return;
+        }
+        try {
+          const fresh = await this.loadEntry(db, category, moduleName);
+          entry.text = fresh.text;
+          entry.baseline = fresh.text;
+          entry.header = fresh.header;
+          entry.viaVbe = fresh.viaVbe;
+          entry.macroEnc = fresh.macroEnc ?? entry.macroEnc;
+          entry.codeEnc = fresh.codeEnc ?? entry.codeEnc;
+          this.fileChangeEmitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+        } catch {
+          /* best-effort refresh only — next save's conflict check will surface anything real */
         }
       })
       .catch((err) => {

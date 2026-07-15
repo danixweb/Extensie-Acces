@@ -6,6 +6,7 @@ import { registerSelectForAi } from './aiContext';
 import { AiMirrorManager } from './aiMirror';
 import { BackupManager } from './backup';
 import { AccessBridge } from './bridge';
+import { registerCursorContextTracker } from './cursorContext';
 import { describeError } from './errors';
 import { AccessFsProvider } from './fsProvider';
 import { parseDesignText } from './formDesignParser';
@@ -147,6 +148,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     registerSelectForAi(registry, mirror),
+    registerCursorContextTracker(registry, mirror),
 
     vscode.commands.registerCommand('accessExplorer.exportHtmlMockup', async (node?: TreeNode) => {
       const target = resolveFormOrReportTarget(node);

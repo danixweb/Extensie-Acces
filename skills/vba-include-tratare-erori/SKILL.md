@@ -26,6 +26,7 @@ Doar când utilizatorul cere explicit adăugarea tratării de erori pe o rutină
 
 Rutina/rutinele "anume" cerute nu trebuie neapărat numite explicit în text — dacă utilizatorul nu dă un nume, identifică ținta din contextul editorului, în această ordine:
 - Dacă există o selecție curentă în editor (tipic rezultatul comenzii "Select Code for AI") — aplică tratarea doar rutinei/rutinelor din acea selecție.
+- Altfel, caută `.accdb-ai/.cursor-context.json` lângă baza de date curentă — extensia îl scrie automat de fiecare dată când cursorul se mută pe o altă rutină în editor (inclusiv la alegerea unei rutini din combourile de tip "obiect"/"procedură" din bara de breadcrumbs, care doar mută cursorul, fără să creeze o selecție reală). Conține `{category, module, routine, kindWord, startLine, endLine}` — dacă există și pare proaspăt, aplică tratarea doar acelei rutini.
 - Altfel, dacă există un document deschis în editor în context — aplică tratarea tuturor rutinelor din acel modul care nu o au deja.
 - Doar dacă niciuna din cele de mai sus nu e disponibilă, cere clarificare în loc să presupui o țintă.
 
@@ -89,6 +90,7 @@ N   End Select
 - `DBEngine.Rollback` rămâne comentat implicit (așa e în marea majoritate a codului existent). Îl activezi (necomentat) doar dacă rutina face operații de scriere pe mai mulți pași și utilizatorul cere explicit rollback la eroare.
 - Păstrează textul mesajelor identic (`"DORITI SA CONTINUATI EXECUTIA"`, formatul `"Eroare in [...]."`) — e convenția din tot restul aplicației, nu-l parafraza.
 - Nu atinge alte rutine din același fișier în afara celei/celor cerute.
+- **După ce aplici editarea, recitește fișierul și confirmă că textul scheletului chiar apare acolo, înainte să anunți utilizatorul că s-a făcut.** Un apel de editare care nu s-a executat de fapt (sau a eșuat silențios) nu trebuie niciodată raportat ca succes.
 
 ### 5. Analizează codul rutinei și propune `Case`-uri suplimentare de eroare (înaintea lui `Case Else`)
 
@@ -105,6 +107,8 @@ Nu te opri la `Case Else` generic. Citește corpul rutinei linie cu linie și id
 Pentru fiecare cod plauzibil identificat în ACEASTĂ rutină (nu generic — trebuie să existe o linie de cod în rutină care chiar poate produce acel eroare), formulează o propunere concretă: un `Case <numar>` poziționat înaintea lui `Case Else`, cu strategia de recuperare potrivită contextului (continuă cu `Resume Next`, valoare implicită prin `Nz`, mesaj specific, sau `Exit Sub`/`Function` curat) — nu doar logare generică, exact ca modelul real din `references/coduri-eroare-comune.md` / `CodBare.bas`.
 
 **Prezintă aceste propuneri explicit utilizatorului** (listă scurtă: cod eroare → linia/operația din rutină care îl poate provoca → tratare propusă) și aplică-le doar pe cele confirmate — deciziile de recuperare la erori specifice schimbă comportamentul programului, spre deosebire de scheletul din Pasul 4, care e pur mecanic și se aplică direct.
+
+**După ce aplici oricare `Case` confirmat, recitește fișierul (nu te baza pe ce crezi că ai scris) și confirmă explicit că acel `Case` chiar apare acolo, cu exact conținutul intenționat, înainte de a raporta succesul utilizatorului.** Un apel de editare care nu s-a executat, sau care a eșuat (ex. textul-ancoră nu s-a mai potrivit din cauza reformatării SQL/DAO după salvarea anterioară), poate să nu producă nicio eroare vizibilă pentru utilizator — dar tot nu trebuie raportat ca aplicat dacă recitirea nu confirmă modificarea.
 
 **Fiecare `Case <numar>` adăugat trebuie însoțit de comentarii explicative, în trei părți:**
 
