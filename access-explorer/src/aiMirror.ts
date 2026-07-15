@@ -331,6 +331,26 @@ export class AiMirrorManager implements vscode.Disposable {
     await this.writeWorkingSetManifest(dir, workingSet);
   }
 
+  /**
+   * Ensures a single object (no dependency expansion) is mirrored to disk and returns its real
+   * file path. Used by "Select Code for AI": the accessdb: virtual document editor is invisible
+   * to external tools like Claude Code, which only see real files, so making a selection stick
+   * requires opening/selecting in this mirror file rather than the virtual one.
+   */
+  async ensureMirrorFile(db: OpenDatabase, category: Category, name: string): Promise<string | undefined> {
+    if (!mirrorEnabled()) {
+      return undefined;
+    }
+    const dir = this.mirrorDirFor(db);
+    await fs.mkdir(dir, { recursive: true });
+    const state = this.stateFor(db, dir);
+    await this.ensureStatePrimed(db, state);
+    const seen = new Set<string>(); // satisfies materializeOne's signature; no pruneStale pass here
+    await this.materializeOne(db, state, category, name, seen);
+    const record = [...state.byPath.values()].find((r) => r.category === category && r.name === name);
+    return record?.filePath;
+  }
+
   /** Overwrites WORKING_SET_FILE with the focus object + dependencies just discovered by
    *  mirrorOnDemand's BFS, so an external tool (e.g. Claude Code) can jump straight to the
    *  relevant mirrored files instead of scanning the whole .accdb-ai/ tree. Reflects only the

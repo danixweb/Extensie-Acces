@@ -24,7 +24,10 @@ Pentru checklist-urile detaliate ale operațiilor de analiză (`optimizeaza`, `b
 ## Context necesar înainte de aplicare
 
 1. Identifică exact fișierul și rutina cerută — delimitarea unei rutine e `Sub|Function|Property Get|Let|Set ... End Sub|End Function|End Property`.
-2. Dacă utilizatorul nu specifică o rutină anume și fișierul e mare, cere clarificare în loc să presupui "tot fișierul". Pe un fișier mic (un singur modul restrâns), poți analiza tot modulul dacă utilizatorul cere explicit asta.
+2. Dacă utilizatorul nu specifică o rutină/modul prin nume în comandă, determină ținta din contextul editorului, în această ordine:
+   - Dacă există o selecție curentă în editor (tipic rezultatul comenzii "Select Code for AI" din extensie) — analizează exact acea selecție, nu presupune "tot fișierul" în locul ei.
+   - Altfel, dacă există un document deschis în editor în context — analizează tot documentul (modulul întreg).
+   - Doar dacă niciuna din cele de mai sus nu e disponibilă, cere clarificare în loc să presupui o țintă.
 3. Dacă rutina are părți deja tratate anterior (ex. are deja tratare de erori de la skill-ul `vba-include-tratare-erori`), nu le rescrie — ia-le ca atare în analiză.
 
 ## Reguli generale (valabile pentru toate operațiile)

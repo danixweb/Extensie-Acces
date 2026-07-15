@@ -24,6 +24,11 @@ Acest tipar NU e o invenție a acestui skill — e convenția reală, dominantă
 
 Doar când utilizatorul cere explicit adăugarea tratării de erori pe o rutină (sau rutine) anume. Nu se aplică proactiv, "din oficiu", pe rutine pe care utilizatorul nu le-a menționat, și nu se rescrie tot fișierul.
 
+Rutina/rutinele "anume" cerute nu trebuie neapărat numite explicit în text — dacă utilizatorul nu dă un nume, identifică ținta din contextul editorului, în această ordine:
+- Dacă există o selecție curentă în editor (tipic rezultatul comenzii "Select Code for AI") — aplică tratarea doar rutinei/rutinelor din acea selecție.
+- Altfel, dacă există un document deschis în editor în context — aplică tratarea tuturor rutinelor din acel modul care nu o au deja.
+- Doar dacă niciuna din cele de mai sus nu e disponibilă, cere clarificare în loc să presupui o țintă.
+
 ## Pași de aplicat
 
 ### 1. Identifică rutina și contextul

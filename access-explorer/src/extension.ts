@@ -146,7 +146,7 @@ export function activate(context: vscode.ExtensionContext): void {
       updateFilterState();
     }),
 
-    registerSelectForAi(),
+    registerSelectForAi(registry, mirror),
 
     vscode.commands.registerCommand('accessExplorer.exportHtmlMockup', async (node?: TreeNode) => {
       const target = resolveFormOrReportTarget(node);
