@@ -191,7 +191,11 @@ function Op-Open([hashtable]$args_) {
     # Explicit arg (from the extension's own setting) wins; otherwise fall back to the
     # local settings file, so direct/manual protocol use (e.g. a skill driving the bridge
     # by hand) still honors the same shared "visible operations" preference.
-    $script:visibleOperations = $true
+    $script:visibleOperations = if ($args_.ContainsKey('visibleOperations')) {
+        [bool]$args_.visibleOperations
+    } else {
+        Get-VisibleOperationsSetting (Join-Path $PSScriptRoot 'settings.local.json')
+    }
     # A freshly-created out-of-process COM server is occasionally not yet ready to accept a
     # property set this early (observed as "Exception setting Visible: ... invalid reference to
     # the property Visible"); one short retry clears it without affecting behavior otherwise.
@@ -204,7 +208,7 @@ function Op-Open([hashtable]$args_) {
     # UserControl defaults to False (automation-owned): explicitly True when visible, so
     # Access survives even if the bridge process dies unexpectedly instead of auto-quitting
     # (normal shutdown still goes through Close-App's explicit Quit() either way).
-    try { $script:app.UserControl = $script:visibleOperations } catch { }
+    try { $script:app.UserControl = $true } catch { }
     # Resolve the real MSACCESS.EXE PID (and main window handle, reused later to bring the
     # window to the front for VBA project unlock) so the extension can kill it if the bridge hangs.
     # hWndAccessApp surfaces as a method through PowerShell COM late binding.
