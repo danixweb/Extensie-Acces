@@ -35,10 +35,10 @@ VS Code (extension, src/*.ts)
 powershell.exe -STA (ps/access-bridge.ps1) — one long-lived process per open database
    │  COM: New-Object -ComObject Access.Application
    ▼
-MSACCESS.EXE (hidden instance, opened SHARED)
+MSACCESS.EXE (visible instance, opened SHARED)
 ```
 
-COM automation is isolated in a separate PowerShell process per database so a hung/blocked Access call never freezes the extension's UI. Requests/responses are one JSON object per line; module/query/macro bodies always travel through temp files (`workDir`), never inline in JSON, so framing never depends on payload content. `AccessBridge` (`src/bridge.ts`) owns this process and serializes all requests (Access COM is not reentrant); a per-op timeout triggers a hard-kill of the whole ladder (kill process → taskkill by PID → remove stale `.laccdb`) since a hang almost always means a hidden modal dialog.
+COM automation is isolated in a separate PowerShell process per database so a hung/blocked Access call never freezes the extension's UI. Requests/responses are one JSON object per line; module/query/macro bodies always travel through temp files (`workDir`), never inline in JSON, so framing never depends on payload content. `AccessBridge` (`src/bridge.ts`) owns this process and serializes all requests (Access COM is not reentrant); a per-op timeout triggers a hard-kill of the whole ladder (kill process → taskkill by PID → remove stale `.laccdb`) since a hang almost always means a modal dialog.
 
 **Object model** (`src/model.ts`): every Access object (table/query/form/report/macro/module) is exposed as a virtual document under the custom URI scheme `accessdb:/<dbKey>/<Category>/<name><ext>`, implemented by `AccessFsProvider` (`src/fsProvider.ts`), a `vscode.FileSystemProvider`. `dbKey` is a truncated sha1 of the lowercased db path. `DatabaseRegistry` tracks all currently-open databases and fires change events consumed by the tree view.
 

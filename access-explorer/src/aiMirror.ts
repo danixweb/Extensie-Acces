@@ -840,8 +840,13 @@ export class AiMirrorManager implements vscode.Disposable {
       // Not yet hydrated — this may be a real, existing database object that on-demand mirroring
       // just hasn't reached yet, rather than an unknown file. Confirm it against the listing first.
       const parsed = this.parseMirrorFilePath(state, filePath);
-      if (parsed && listingFor(db.listing, parsed.category).includes(parsed.name)) {
-        record = await this.ensureRecord(db, state, parsed.category, parsed.name);
+      if (parsed) {
+        const resolvedName = listingFor(db.listing, parsed.category).find(
+          (n) => n.toUpperCase() === parsed.name.toUpperCase()
+        );
+        if (resolvedName) {
+          record = await this.ensureRecord(db, state, parsed.category, resolvedName);
+        }
       }
     }
     if (!state || !record) {
@@ -941,8 +946,13 @@ export class AiMirrorManager implements vscode.Disposable {
     let record = state?.byPath.get(filePath.toLowerCase());
     if (!record && state && db) {
       const parsed = this.parseMirrorFilePath(state, filePath);
-      if (parsed && listingFor(db.listing, parsed.category).includes(parsed.name)) {
-        record = await this.ensureRecord(db, state, parsed.category, parsed.name);
+      if (parsed) {
+        const resolvedName = listingFor(db.listing, parsed.category).find(
+          (n) => n.toUpperCase() === parsed.name.toUpperCase()
+        );
+        if (resolvedName) {
+          record = await this.ensureRecord(db, state, parsed.category, resolvedName);
+        }
       }
     }
     if (!record) {

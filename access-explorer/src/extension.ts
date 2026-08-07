@@ -252,7 +252,7 @@ async function exportHtmlMockup(db: OpenDatabase, category: Category, name: stri
 }
 
 export async function deactivate(): Promise<void> {
-  // Close every bridge so no hidden MSACCESS.EXE or .laccdb outlives VS Code.
+  // Close every bridge so no orphaned MSACCESS.EXE or .laccdb outlives VS Code.
   await Promise.allSettled(registry.all.map((db) => db.bridge.dispose()));
 }
 

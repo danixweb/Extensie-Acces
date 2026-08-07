@@ -180,7 +180,7 @@ export class AccessBridge {
       const promise = new Promise<unknown>((resolve, reject) => {
         const timer = setTimeout(() => {
           this.pending.delete(id);
-          // A hung op almost always means Access is showing a hidden modal dialog
+          // A hung op almost always means Access is showing a modal dialog
           // or deadlocked — the process is unusable; kill the whole ladder.
           void this.hardKill();
           reject(new BridgeError('BRIDGE_TIMEOUT', `${op} timed out after ${timeout} ms`));
@@ -356,7 +356,7 @@ export class AccessBridge {
       /* already dead */
     }
     if (this.accessPid > 0) {
-      // Last resort: remove the orphaned hidden MSACCESS.EXE instance.
+      // Last resort: remove the orphaned MSACCESS.EXE instance.
       cp.spawn('taskkill.exe', ['/PID', String(this.accessPid), '/T', '/F'], {
         windowsHide: true,
         stdio: 'ignore',

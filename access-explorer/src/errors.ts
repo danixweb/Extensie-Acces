@@ -71,7 +71,7 @@ export function describeError(err: unknown, opts?: { vbaLocked?: boolean }): str
       );
     case 'BRIDGE_TIMEOUT':
       return vscode.l10n.t(
-        'The Access operation timed out — Access may be showing a hidden dialog. The connection was reset; reopen the database. Details: {0}',
+        'The Access operation timed out — Access may be showing a dialog. The connection was reset; reopen the database. Details: {0}',
         detail,
       );
     case 'BRIDGE_CRASHED':

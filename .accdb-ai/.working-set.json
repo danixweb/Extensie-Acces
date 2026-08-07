@@ -1,11 +1,179 @@
 {
-  "generatedAt": "2026-07-15T14:50:07.611Z",
+  "generatedAt": "2026-07-25T17:42:55.137Z",
   "objects": [
     {
       "category": "Forms",
       "name": "10 COMENZI SIMPLA",
       "file": "Forms/10 COMENZI SIMPLA.form.txt",
       "role": "focus"
+    },
+    {
+      "category": "Modules",
+      "name": "functii",
+      "file": "Modules/functii.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "cDialog",
+      "file": "Modules/cDialog.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "Protocoale",
+      "file": "Modules/Protocoale.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "Module3",
+      "file": "Modules/Module3.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "CLRS232",
+      "file": "Modules/CLRS232.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "modMain",
+      "file": "Modules/modMain.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "meniu_etichete",
+      "file": "Modules/meniu_etichete.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "cDB",
+      "file": "Modules/cDB.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "backup",
+      "file": "Modules/backup.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "Module1",
+      "file": "Modules/Module1.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "clsMonthCal",
+      "file": "Modules/clsMonthCal.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "spune",
+      "file": "Modules/spune.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "word2",
+      "file": "Modules/word2.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "Declaratii",
+      "file": "Modules/Declaratii.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "MouseWeelHookClass",
+      "file": "Modules/MouseWeelHookClass.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "Casuta",
+      "file": "Modules/Casuta.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "mdlTraseazaCalendar",
+      "file": "Modules/mdlTraseazaCalendar.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "cRefs",
+      "file": "Modules/cRefs.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "Manipulare Fisiere",
+      "file": "Modules/Manipulare Fisiere.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "Fisiere",
+      "file": "Modules/Fisiere.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "cRef",
+      "file": "Modules/cRef.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "1 meniuri",
+      "file": "Modules/1 meniuri.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "UsysRibbonModul",
+      "file": "Modules/UsysRibbonModul.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "EXTRACTOR COD",
+      "file": "Modules/EXTRACTOR COD.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "mdlDragDrop",
+      "file": "Modules/mdlDragDrop.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "BLOB",
+      "file": "Modules/BLOB.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "mdlTwain",
+      "file": "Modules/mdlTwain.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "mdlClipboard",
+      "file": "Modules/mdlClipboard.bas",
+      "role": "dependency"
     },
     {
       "category": "Tables",
@@ -209,6 +377,180 @@
       "category": "Tables",
       "name": "CLISEE",
       "file": "Tables/CLISEE.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "referinte",
+      "file": "Modules/referinte.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "Module5",
+      "file": "Modules/Module5.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "Protocoale1",
+      "file": "Modules/Protocoale1.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "modMASURARI ELECTRICE",
+      "file": "Modules/modMASURARI ELECTRICE.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "De facut",
+      "file": "Tables/De facut.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "personal",
+      "file": "Tables/personal.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "INTRARI",
+      "file": "Tables/INTRARI.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_Situatie comenzi Persoane",
+      "file": "Tables/dbo_Situatie comenzi Persoane.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "planificare calculata",
+      "file": "Tables/planificare calculata.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "CheckList",
+      "file": "Tables/CheckList.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "compacteaza NEFOLOSIT",
+      "file": "Modules/compacteaza NEFOLOSIT.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "Versiune mobila omisiuni",
+      "file": "Tables/Versiune mobila omisiuni.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "mdlDatePicker",
+      "file": "Modules/mdlDatePicker.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "modFontPicker",
+      "file": "Modules/modFontPicker.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "modColorPicker",
+      "file": "Modules/modColorPicker.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "ajbCalendar",
+      "file": "Modules/ajbCalendar.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "modJustiCurrentCtlDC",
+      "file": "Modules/modJustiCurrentCtlDC.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "MouseWeelHook",
+      "file": "Modules/MouseWeelHook.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "ControlFunctii",
+      "file": "Modules/ControlFunctii.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "modul_PERSONAL",
+      "file": "Modules/modul_PERSONAL.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "4 utilizatori",
+      "file": "Tables/4 utilizatori.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_Lieferliste",
+      "file": "Tables/dbo_Lieferliste.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "Arhiva controale produs",
+      "file": "Tables/Arhiva controale produs.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "999 ETICHETE pungi",
+      "file": "Tables/999 ETICHETE pungi.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "999 Comenzi export",
+      "file": "Tables/999 Comenzi export.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "mdlDragDrop1",
+      "file": "Modules/mdlDragDrop1.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Modules",
+      "name": "CONTROALE",
+      "file": "Modules/CONTROALE.bas",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "dbo_masurari electrice",
+      "file": "Tables/dbo_masurari electrice.table.txt",
+      "role": "dependency"
+    },
+    {
+      "category": "Tables",
+      "name": "SEMNATURI",
+      "file": "Tables/SEMNATURI.table.txt",
       "role": "dependency"
     }
   ]

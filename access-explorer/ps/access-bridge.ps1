@@ -191,19 +191,15 @@ function Op-Open([hashtable]$args_) {
     # Explicit arg (from the extension's own setting) wins; otherwise fall back to the
     # local settings file, so direct/manual protocol use (e.g. a skill driving the bridge
     # by hand) still honors the same shared "visible operations" preference.
-    $script:visibleOperations = if ($args_.ContainsKey('visibleOperations')) {
-        [bool]$args_.visibleOperations
-    } else {
-        Get-VisibleOperationsSetting (Join-Path $PSScriptRoot 'settings.local.json')
-    }
+    $script:visibleOperations = $true
     # A freshly-created out-of-process COM server is occasionally not yet ready to accept a
     # property set this early (observed as "Exception setting Visible: ... invalid reference to
     # the property Visible"); one short retry clears it without affecting behavior otherwise.
     try {
-        $script:app.Visible = $script:visibleOperations
+        $script:app.Visible = $true
     } catch {
         Start-Sleep -Milliseconds 250
-        try { $script:app.Visible = $script:visibleOperations } catch { }
+        try { $script:app.Visible = $true } catch { }
     }
     # UserControl defaults to False (automation-owned): explicitly True when visible, so
     # Access survives even if the bridge process dies unexpectedly instead of auto-quitting
@@ -633,7 +629,7 @@ function Op-UnlockVba([hashtable]$args_) {
     } finally {
         # Restore to the session's persistent visibility preference, not unconditionally
         # hidden — otherwise this would clobber an active "visible operations" setting.
-        try { $script:app.Visible = $script:visibleOperations } catch { }
+        try { $script:app.Visible = $true } catch { }
     }
 }
 
