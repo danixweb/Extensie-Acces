@@ -709,13 +709,22 @@ function Close-App {
                 $guard++
             }
         } catch { }
-        try { $script:app.CloseCurrentDatabase() } catch { }
-        try { $script:app.Quit($acQuitSaveNone) } catch { }
-        try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($script:app) } catch { }
-        $script:app = $null
+        $autoCompact = $false
+        try { $autoCompact = [bool]$script:app.GetOption('Auto Compact') } catch { }
+
+        if ($autoCompact -and $script:accessPid -gt 0) {
+            $pidToKill = $script:accessPid
+            $script:app = $null
+            Stop-Process -Id $pidToKill -Force -ErrorAction SilentlyContinue
+        } else {
+            try { $script:app.CloseCurrentDatabase() } catch { }
+            try { $script:app.Quit($acQuitSaveNone) } catch { }
+            try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($script:app) } catch { }
+            $script:app = $null
+            [GC]::Collect()
+            [GC]::WaitForPendingFinalizers()
+        }
         $script:dbPath = $null
-        [GC]::Collect()
-        [GC]::WaitForPendingFinalizers()
     }
 }
 

@@ -326,14 +326,12 @@ export class AccessBridge {
       } catch {
         // stdin already closed — fall through to hard kill
       }
-      const timed = await Promise.race([
+      await Promise.race([
         exited.then(() => true),
         new Promise<boolean>((r) => setTimeout(() => r(false), QUIT_GRACE_MS)),
       ]);
-      if (!timed) {
-        await this.hardKill();
-      }
     }
+    await this.hardKill();
     this.failAllPending(new BridgeError('BRIDGE_CRASHED', 'bridge disposed'));
   }
 

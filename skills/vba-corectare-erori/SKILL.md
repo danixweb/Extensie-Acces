@@ -6,7 +6,7 @@ argument-hint: <numar-erori-de-procesat>
 
 ## Ce face acest skill
 
-Spre deosebire de `vba-include-tratare-erori` și `vba-analiza` (care presupun "nu există conexiune live" și doar propun cod/SQL de aplicat manual), acest skill **are conexiune live reală**: citește direct din tabela SQL Server `dbo_Erori program` (legată prin ODBC în `.accdb`) și scrie direct în Access, prin scripturile din `access-explorer/ps/`.
+Pentru fisierul accdb descis in extensie, spre deosebire de `vba-include-tratare-erori` și `vba-analiza` (care presupun "nu există conexiune live" și doar propun cod/SQL de aplicat manual), acest skill **are conexiune live reală**: citește direct din tabela SQL Server `dbo_Erori program` (legată prin ODBC în `.accdb`) și scrie direct în Access, prin scripturile din `access-explorer/ps/`.
 
 Procesează un număr limitat de erori **netratate** (`tratata=False`), în ordine (`id`), una câte una: pentru fiecare, localizează modulul/rutina VBA responsabilă, propune o corecție concretă, **așteaptă mereu confirmarea explicită a utilizatorului** înainte de a scrie ceva în Access, apoi — la confirmare — aplică corecția (marcată cu timestamp) și marchează rândul ca tratat în SQL Server.
 
@@ -38,9 +38,9 @@ Când tabela e populată corect de `TRATARE_ERORI`/`ScrieEroare` (convenția din
 - Dacă sunt **goale**, încearcă fallback: caută în `context` tiparul `Netratata <Modul> rutina <Rutina>` (aceeași convenție). Dacă nici acolo nu găsești nimic — rândul e foarte probabil o **notificare de business, nu o eroare de cod** (exact ce s-a văzut pe date reale: rânduri cu `numar=0`, `context="E"`, mesaje gen "COMENZI CORECTATE..."). **Sari peste acest rând explicit** (spune utilizatorului de ce), nu marca `tratata` și nu inventa un modul/rutină.
 
 **b. Fetch sursa modulului/rutinei via `access-bridge.ps1`** (protocol JSON pe stdin/stdout, documentat în `access-explorer/README.md` — deschide procesul, trimite `{"op":"open","args":{"path":"<DbPath>"}}`, apoi operația de citire, apoi `{"op":"quit"}`):
-   - încearcă întâi ca modul standard/clasă: `{"op":"getModule","args":{"name":"<modul>","file":"<tmp>"}}`;
+   - încearcă întâi ca modul standard/clasă: `{"op":"getModule","args":{"name":"<modul>","file":"<tmp>.bas"}}`;
    - dacă modulul nu există cu acel nume, încearcă formular (`Form_<modul>` sau numele direct, convenție din `vba-include-tratare-erori`) cu `getFormDef`, apoi raport cu `getReportDef`.
-   - Fișierul `<tmp>` (scos de operație) conține sursa exportată — citește-l cu `Read`.
+   - **Important:** Fișierul temporar pe care îl creezi pentru a extrage sursa (și a i-o prezenta utilizatorului) trebuie să aibă mereu extensia `.bas` (ex. `corectie.bas`), pentru ca editorul să îi aplice colorarea de sintaxă specifică VBA. Fișierul va conține sursa exportată — citește-l cu `Read`.
 
 **c. Localizează rutina (`Sub`/`Function`) numită de `rutina` în sursă.** Nu atinge alte rutine din același modul.
 
@@ -60,8 +60,8 @@ Când tabela e populată corect de `TRATARE_ERORI`/`ScrieEroare` (convenția din
       '===Final Corectat AI <timestamp>===
       ```
       (Convenție distinctă de `===Start/Final Generat AI===` folosită de `/vba` — aceasta marchează specific o intervenție a acestui skill, pornind de la o eroare din log.)
-   3. Scrie înapoi în Access cu operația corespunzătoare tipului de obiect (`saveModule` / `saveFormDef` / `saveReportDef`), trimițând același `<tmp>` editat.
-   4. Rulează:
+   3. **Salvare manuală:** Deoarece salvarea automată nu este deocamdată funcțională, nu iniția tu scrierea în Access. Aplică modificările direct în fișierul din editor, pune-i la dispoziție codul modificat (selectat/vizibil pe ecranul curent) și cere-i utilizatorului să salveze manual (Ctrl+S).
+   4. După ce utilizatorul confirmă salvarea manuală, rulează:
       ```
       powershell -NoProfile -File access-explorer\ps\mark-error-treated.ps1 -DbPath "<DbPath>" -Id <id>
       ```
