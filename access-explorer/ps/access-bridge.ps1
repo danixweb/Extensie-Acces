@@ -687,97 +687,7 @@ function Op-Backup([hashtable]$args_) {
 # Compacts and repairs the current database in place: closes it, runs CompactRepair into a temp
 # file next to it, then swaps the temp file over the original and reopens it. CompactRepair needs
 # the source file free of any exclusive/shared hold from THIS automation instance (hence the
-# CloseCurrentDatabase first) and can fail outright if another user/process has it open elsewhere
-# (DB_LOCKED) — any failure here always leaves the original file untouched and reopens it, never
-# destructive.
-function Op-Compact([hashtable]$args_) {
-    Assert-Open
-    $sourcePath = $script:dbPath
-    $dir = Split-Path -Parent $sourcePath
-    $ext = [System.IO.Path]::GetExtension($sourcePath)
-    $tempPath = Join-Path $dir ([System.IO.Path]::GetFileNameWithoutExtension($sourcePath) + '_compact_' + [System.Guid]::NewGuid().ToString('N').Substring(0, 8) + $ext)
 
-    $script:app.CloseCurrentDatabase()
-
-    # Every earlier op that called Get-Db (CurrentDb()) leaves behind a live RCW referencing
-    # the DAO Database object — none of those call sites release it, so across a long-running
-    # session dozens can accumulate. .NET never collects them on its own schedule, so the
-    # underlying Jet/ACE engine sees the database as still "open" via those dangling references
-    # even after CloseCurrentDatabase() — CompactRepair then fails with "already opened by user
-    # ... on machine ..." even though no real client holds it. Force collection before compacting.
-    [GC]::Collect()
-    [GC]::WaitForPendingFinalizers()
-    [GC]::Collect()
-
-    # CloseCurrentDatabase() returns before the OS-level file lock is always fully released —
-    # calling CompactRepair immediately can race and fail with "already opened by user ...
-    # on machine ..." (this same instance's own, not-yet-cleared lock; the .laccdb itself can
-    # already be gone when this happens, e.g. under OneDrive sync briefly holding a read
-    # handle after heavy write activity — the busier the preceding session, the longer the
-    # window — so waiting on the lock FILE isn't enough). Retry CompactRepair itself with
-    # backoff (capped total ~60s, well under this op's 120s+ caller-side timeout budget).
-    $info = $null
-    $maxAttempts = 8
-    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-        try {
-            # [void] is required — an unassigned COM method call result otherwise leaks onto
-            # PowerShell's output stream and becomes part of this function's return value,
-            # silently corrupting the JSON response (this was a preexisting, latent bug: it
-            # never surfaced before because CompactRepair had never actually succeeded here).
-            [void]$script:app.CompactRepair($sourcePath, $tempPath, $false)
-            $info = $null
-            break
-        } catch {
-            $info = Get-ErrorInfo $_
-            if ($info.code -ne 'DB_LOCKED' -or $attempt -eq $maxAttempts) { break }
-            if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
-            Start-Sleep -Milliseconds ([Math]::Min(2000 * $attempt, 10000))
-        }
-    }
-    if ($null -ne $info) {
-        # Access's CompactRepair insists on (re)compiling the VBA project and fails with
-        # "Cannot Compile Project." when the project is password-locked or uncompilable.
-        # The DAO engine compacts the same file without touching VBA — try that before
-        # giving up (verified: recovers a bloated file with a locked project intact).
-        $daoCompacted = $false
-        try {
-            if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
-            $dao = New-Object -ComObject DAO.DBEngine.120
-            try {
-                [void]$dao.CompactDatabase($sourcePath, $tempPath)
-                $daoCompacted = $true
-            } finally {
-                [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($dao)
-            }
-        } catch {
-            [Console]::Error.WriteLine("bridge warning: DAO CompactDatabase fallback failed: $($_.Exception.Message)")
-        }
-        if (-not $daoCompacted) {
-            try { [void](Open-DbShared $sourcePath) } catch { }
-            if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
-            return @{ _error = @{ code = $info.code; number = $info.number; hresult = $info.hresult; message = "Compact failed, database reopened unchanged: $($info.message)" } }
-        }
-    }
-
-    # Move-Item -Force is a single rename/replace, not delete-then-copy: if it fails, the
-    # original file at $sourcePath is still intact and the compacted result stays at $tempPath
-    # (reported in the error) rather than being lost.
-    try {
-        Move-Item -LiteralPath $tempPath -Destination $sourcePath -Force
-    } catch {
-        $info = Get-ErrorInfo $_
-        try { [void](Open-DbShared $sourcePath) } catch { }
-        return @{ _error = @{ code = 'COM_ERROR'; number = 0; hresult = 0; message = "Compact succeeded (result left at $tempPath) but replacing the original file failed: $($info.message)" } }
-    }
-
-    $lockExt = if ($ext -ieq '.mdb') { 'ldb' } else { 'laccdb' }
-    $lockPath = [System.IO.Path]::ChangeExtension($sourcePath, $lockExt)
-    if (Test-Path -LiteralPath $lockPath) { Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue }
-
-    [void](Open-DbShared $sourcePath)
-    $script:dbPath = $sourcePath
-    return @{ compacted = $true; listing = (Op-List) }
-}
 
 function Close-App {
     if ($null -ne $script:app) {
@@ -851,7 +761,7 @@ try {
                 'unlockVba'    { Op-UnlockVba $opArgs }
                 'compile'      { Op-Compile $opArgs }
                 'backup'       { Op-Backup $opArgs }
-                'compact'      { Op-Compact $opArgs }
+
                 'relinkCredentials' { Op-RelinkCredentials $opArgs }
                 default        { throw "Unknown op: $op" }
             }

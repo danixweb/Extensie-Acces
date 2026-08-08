@@ -22,7 +22,8 @@
   "main": "./dist/extension.js",
   "l10n": "./l10n",
   "activationEvents": [
-    "onFileSystem:accessdb"
+    "onFileSystem:accessdb",
+    "onStartupFinished"
   ],
   "contributes": {
     "customEditors": [
@@ -81,12 +82,7 @@
         "category": "Access",
         "icon": "$(close)"
       },
-      {
-        "command": "accessExplorer.compactDatabase",
-        "title": "%cmd.compactDatabase%",
-        "category": "Access",
-        "icon": "$(archive)"
-      },
+
       {
         "command": "accessExplorer.openObject",
         "title": "%cmd.openObject%",
@@ -226,11 +222,7 @@
           "when": "view == accessExplorer.tree && viewItem == database",
           "group": "9_backups@4"
         },
-        {
-          "command": "accessExplorer.compactDatabase",
-          "when": "view == accessExplorer.tree && viewItem == database",
-          "group": "9_backups@5"
-        },
+
         {
           "command": "accessExplorer.exportHtmlMockup",
           "when": "view == accessExplorer.tree && viewItem =~ /^object:(Forms|Reports)$/",
@@ -373,11 +365,7 @@
           "default": true,
           "description": "%cfg.aiMirror.enabled%"
         },
-        "accessExplorer.compactOnClose": {
-          "type": "boolean",
-          "default": true,
-          "description": "%cfg.compactOnClose%"
-        },
+
         "accessExplorer.reopenOnStartup": {
           "type": "boolean",
           "default": true,

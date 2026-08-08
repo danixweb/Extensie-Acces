@@ -45,7 +45,7 @@ export interface BridgeOptions {
 
 const OPEN_TIMEOUT_MS = 60_000;
 const COMPILE_TIMEOUT_MS = 60_000;
-const COMPACT_TIMEOUT_MS = 120_000;
+
 /**
  * Timeout for reads issued by the background AI mirror (materialize/quickSync). Mirroring is
  * fire-and-forget — nothing is waiting synchronously — so it can afford to wait longer than the
@@ -285,18 +285,7 @@ export class AccessBridge {
     await this.request('backup', { target: targetPath }, OPEN_TIMEOUT_MS);
   }
 
-  /**
-   * Closes the database, runs Access's CompactRepair into a temp file, swaps it over the
-   * original, then reopens it — all within this same bridge/process. Requires the file free
-   * of any other exclusive/shared hold; throws `DB_LOCKED` (never destructive — the original
-   * is left untouched and reopened) if another user/process has it open elsewhere.
-   */
-  async compact(): Promise<{ compacted: boolean; listing: DbListing }> {
-    return (await this.request('compact', {}, COMPACT_TIMEOUT_MS)) as {
-      compacted: boolean;
-      listing: DbListing;
-    };
-  }
+
 
   /**
    * Applies the given username/password to every ODBC-linked TableDef and refreshes the link, so
