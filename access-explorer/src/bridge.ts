@@ -232,10 +232,17 @@ export class AccessBridge {
     });
   }
 
-  async saveMacro(name: string, text: string, enc: string): Promise<void> {
+  async replaceVbeChunk(name: string, procName: string, kindWord: string, text: string, timeoutMs = 20000): Promise<void> {
     await this.withTempFile(async (file) => {
       await fs.writeFile(file, text, 'utf8');
-      await this.request('saveMacro', { name, file, enc });
+      await this.request('replaceVbeChunk', { name, procName, kindWord, file }, timeoutMs);
+    });
+  }
+
+  async saveMacro(name: string, text: string, enc: string, timeoutMs = 20000): Promise<void> {
+    await this.withTempFile(async (file) => {
+      await fs.writeFile(file, text, 'utf8');
+      await this.request('saveMacro', { name, file, enc }, timeoutMs);
     });
   }
 

@@ -18,6 +18,7 @@ import { AccessDbRedirectEditorProvider } from './redirectEditorProvider';
 import { AccessTreeProvider, TreeNode } from './tree';
 import { VbaUnlockManager } from './vbaUnlock';
 import { VbaSymbolProvider } from './vbaSymbols';
+import { registerPushToAccess } from './pushToAccess';
 
 const registry = new DatabaseRegistry();
 let fsProvider: AccessFsProvider;
@@ -71,6 +72,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const scriptPath = context.asAbsolutePath(path.join('ps', 'access-bridge.ps1'));
   const findOrphansScriptPath = context.asAbsolutePath(path.join('ps', 'find-orphaned-access.ps1'));
   const workDir = path.join(context.globalStorageUri.fsPath, 'work');
+
+  registerPushToAccess(context, registry);
 
   const treeView = vscode.window.createTreeView('accessExplorer.tree', {
     treeDataProvider: tree,

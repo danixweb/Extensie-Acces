@@ -474,6 +474,60 @@ function Op-SaveModule([hashtable]$args_) {
     return @{ saved = $true }
 }
 
+function Op-ReplaceVbeChunk([hashtable]$args_) {
+    Assert-Open
+    $name = [string]$args_.name
+    $procName = [string]$args_.procName
+    $kindWord = [string]$args_.kindWord
+    $file = [string]$args_.file
+
+    $vbc = Get-VbComponent $name
+    $cm = $vbc.CodeModule
+
+    try {
+        if ($name -match '^Form_(.+)$') {
+            Show-DesignObject 'form' $matches[1]
+        } elseif ($name -match '^Report_(.+)$') {
+            Show-DesignObject 'report' $matches[1]
+        }
+        $script:app.VBE.MainWindow.Visible = $true
+        $cm.CodePane.Show()
+    } catch { }
+
+    $text = [System.IO.File]::ReadAllText($file, $Utf8NoBom)
+
+    if ([string]::IsNullOrEmpty($procName)) {
+        if ($cm.CountOfLines -gt 0) { $cm.DeleteLines(1, $cm.CountOfLines) }
+        if ($text.Length -gt 0) { $cm.AddFromString($text) }
+    } else {
+        $pk = 0
+        if ($kindWord -eq 'property let') { $pk = 1 }
+        elseif ($kindWord -eq 'property set') { $pk = 2 }
+        elseif ($kindWord -eq 'property get') { $pk = 3 }
+        
+        $startLine = 0
+        $count = 0
+        try {
+            $startLine = $cm.ProcStartLine($procName, $pk)
+            $count = $cm.ProcCountLines($procName, $pk)
+        } catch { }
+
+        if ($count -gt 0) {
+            $cm.DeleteLines($startLine, $count)
+            $cm.InsertLines($startLine, $text)
+        } else {
+            if ($cm.CountOfLines -gt 0) {
+                $cm.InsertLines($cm.CountOfLines + 1, "`r`n" + $text)
+            } else {
+                $cm.AddFromString($text)
+            }
+        }
+    }
+    Clear-ComObject $cm
+    Clear-ComObject $vbc
+    return @{ replaced = $true }
+}
+
 function Op-GetMacro([hashtable]$args_) {
     Assert-Open
     $r = Export-ObjectText $acMacro $args_.name $args_.file
@@ -770,6 +824,7 @@ try {
                 'unlockVba'    { Op-UnlockVba $opArgs }
                 'compile'      { Op-Compile $opArgs }
                 'backup'       { Op-Backup $opArgs }
+                'replaceVbeChunk' { Op-ReplaceVbeChunk $opArgs }
 
                 'relinkCredentials' { Op-RelinkCredentials $opArgs }
                 default        { throw "Unknown op: $op" }
